@@ -215,12 +215,12 @@ class PicoGpu extends hxd.App {
 			var mem = api.data.memory[index];
 			if( mem == null ) mem = new PicoMem();
 			win.code.text = mem?.toCodeString(editStride) ?? "Uninitialize Memory. Select mode below.";
-			var tot = 0;
-			for( m in api.data.memory )
-				if( m != null )
-					tot += m.getMemSize();
 			win.code.canEdit = win.memSave.visible = mem.canEditCode();
-			win.memTot.text = "Size: "+fmtSize(mem.getMemSize())+"\nTotal: "+fmtSize(tot);
+			win.memTot.text = [
+				"Size: "+fmtSize(mem.getMemSize()),
+				"Code: "+fmtSize(api.data.getCodeSize()),
+				"Total: "+fmtSize(api.data.getTotalSize()),
+			].join("\n");
 			win.strideValue.text = ""+editStride;
 			for( i => b in win.memModes )
 				b.selected = mem.data.getIndex() == i;
@@ -247,7 +247,8 @@ class PicoGpu extends hxd.App {
 		mem.setMode(mode);
 
 		function flush() {
-			api.data.memory[editMemory] = mem.data == Unknown ? null : mem;
+			if( api.data.memory[editMemory]?.data.getIndex() != mode )
+				api.data.memory[editMemory] = mem.data == Unknown ? null : mem;
 			setMode(Memory);
 			onCodeChange();
 		}
@@ -313,6 +314,11 @@ class PicoGpu extends hxd.App {
 		case TInst(c,_): checker.setGlobals(c);
 		default:
 		}
+		switch( checker.types.resolve("hxd.Key") ) {
+		case TInst(c,_):
+			checker.setGlobal("Key", c.staticClass);
+		default:
+		}
 	}
 
 	function initUI() {
@@ -357,6 +363,12 @@ class PicoGpu extends hxd.App {
 		interp.variables.set("trace", Reflect.makeVarArgs(function(args) {
 			log(Std.string(args[0]));
 		}));
+		if( api.data.getTotalSize() > 64<<10 ) {
+			handleRuntimeError(() -> throw "Total mem size is "+fmtSize(api.data.getTotalSize())+" >64KB");
+			interp = null;
+			return;
+		}
+		interp.variables.set("Key", hxd.Key);
 		interp.execute(expr);
 		var init : Dynamic = interp.variables.get("init");
 		if( init != null && Reflect.isFunction(init) )

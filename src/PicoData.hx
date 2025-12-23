@@ -28,4 +28,23 @@ class PicoData {
 		].join("\n#----\n");
 	}
 
+	public function getCodeSize() {
+		var tot = code.length;
+		for( s in shaders )
+			tot += s.length;
+		return tot;
+	}
+
+	public function getMemSize() {
+		var tot = 0;
+		for( m in memory )
+			if( m != null )
+				tot += m.getMemSize();
+		return tot;
+	}
+
+	public function getTotalSize() {
+		return getCodeSize() + getMemSize();
+	}
+
 }

@@ -167,7 +167,26 @@ class PicoApi {
 			return;
 		}
 		flush();
-		gpu.engine.renderIndexed(buffer.alloc(currentShader.format), index.allocIndexes(), startTri, drawTri);
+		if( index == null )
+			gpu.engine.renderTriBuffer(buffer.alloc(currentShader.format), startTri, drawTri);
+		else
+			gpu.engine.renderIndexed(buffer.alloc(currentShader.format), index.allocIndexes(), startTri, drawTri);
+	}
+
+	function hasFocus() {
+		return gpu.sevents.getFocus() != null;
+	}
+
+	public function keyDown( code : Int ) {
+		return !hasFocus() && hxd.Key.isDown(code);
+	}
+
+	public function keyPressed( code : Int ) {
+		return !hasFocus() && hxd.Key.isPressed(code);
+	}
+
+	public function keyReleased( code : Int ) {
+		return !hasFocus() && hxd.Key.isReleased(code);
 	}
 
 	public function log( v : Dynamic ) {
