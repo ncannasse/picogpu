@@ -29,10 +29,12 @@ class PicoData {
 	}
 
 	public function getCodeSize() {
-		var tot = code.length;
+		var codes = [code];
 		for( s in shaders )
-			tot += s.length;
-		return tot;
+			if( s != null )
+				codes.push(s);
+		var str = codes.join("§");
+		return haxe.zip.Compress.run(haxe.io.Bytes.ofString(str),9).length;
 	}
 
 	public function getMemSize() {
