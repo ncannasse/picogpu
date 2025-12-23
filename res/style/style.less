@@ -1,0 +1,173 @@
+@width : 720;
+@height : 540;
+@bar : 20;
+@cheight : @height - @bar * 2;
+
+text {
+	font : url("style/medodica_regular_12.fnt");
+}
+
+button {
+	width : 100;
+	height : 18;
+	background: #222;
+	content-align : middle middle;
+	cursor: button;
+	text {
+		offset-y : -2;
+		color : #eee;
+	}
+	&.sel {
+		background: #444;
+		text {
+			color : white;
+		}
+	}
+	&:hover {
+		background: #555;
+		text {
+			color : white;
+		}
+	}
+}
+
+pico-window {
+	fill-width : true;
+	fill-height : true;
+	layout : vertical;
+	.header {
+		height : @bar;
+		content-valign : middle;
+		padding : 2;
+		background : #333;
+		fill-width : true;
+		hspacing : 10;
+	}
+	.footer {
+		height : @bar;
+		background : #333;
+		fill-width : true;
+		padding : 2;
+		content-valign : middle;
+		.ver {
+			align : right;
+		}
+		.error {
+			background: #311;
+			height : @bar;
+			content-align : top;
+			min-width : @width * 0.5;
+			position : absolute;
+			padding-left : 5;
+			overflow: limit;
+			text {
+				color : #ff3333;
+				offset-y : 1;
+			}
+		}
+	}
+
+	.content {
+		height : @cheight;
+		content-align : top;
+		background : #222;
+		fill-width : true;
+		.code {
+			layout : vertical;
+			.banks {
+				button {
+					width : 22;
+				}
+				position: absolute;
+			}
+			.code-content {
+				margin-top : 15;
+				padding : 5;
+				overflow: scroll;
+				content-valign : top;
+				.lineNumbers {
+					color : #888;
+					margin-right : 5;
+				}
+			}
+			.errorLineDisp {
+				position : absolute;
+				width : @width * 0.5;
+				height : 16;
+				background: red 0.2;
+			}
+		}
+		.code, .render {
+			fill-width : true;
+			fill-height : true;
+			auto-size-width : 0.5;
+			content-align : top;
+		}
+		.render {
+			layout : vertical;
+			.scene, .log {
+				content-align : top;
+				fill-width : true;
+				fill-height : true;
+				auto-size-height : 0.5;
+			}
+			.scene {
+				background : black;
+				bitmap {
+					width : @width * 0.5;
+					height : @cheight * 0.5;
+				}
+			}
+			.log {
+				background : #333;
+				padding : 5;
+				height : @cheight * 0.5;
+			}
+			.log-content {
+				fill-width : true;
+				overflow : scroll;
+				padding-bottom : 5;
+			}
+		}
+		.memPanel {
+			visible : false;
+			background : #333;
+			padding : 5;
+			position: absolute;
+			align : bottom right;
+			margin-right : 10;
+			layout : vertical;
+			.modeSelect {
+				layout : vertical;
+				vspacing : 1;
+				button {
+					width : 60;
+					visible : false;
+					&.sel {
+						visible : true;
+					}
+				}
+			}
+			#memSave {
+				margin-top : 4;
+			}
+		}
+	}
+
+	&.mode-memory {
+		.memPanel {
+			visible : true;
+		}
+		&.editMemMode {
+			.memPanel .modeSelect button {
+				visible : true;
+			}
+		}
+	}
+
+	&.mode-code {
+		.banks {
+			visible : false;
+		}
+	}
+}

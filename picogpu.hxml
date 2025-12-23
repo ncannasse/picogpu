@@ -1,0 +1,13 @@
+-lib heaps
+-lib hlsdl
+-lib domkit
+-lib hscript
+-hl picogpu.hl
+-cp src
+-D hscriptPos
+-D windowSize=720x540
+-D windowTitle=PicoGPU
+-xml api.xml
+-main PicoGpu
+--macro hscript.LiveClass.enable("api.xml",["src"])
+--macro domkit.Macros.allowInterp()

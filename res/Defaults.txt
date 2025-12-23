@@ -1,0 +1,34 @@
+PICO-GPU.1
+----
+@input var pos : Vec3;
+@param var cameraViewProj : Mat4;
+var outputPosition : Vec4;
+var uv : Vec2;
+function vertex() {
+	uv = pos.xy;
+	outputPosition = vec4(pos,1) * cameraViewProj;
+}
+--
+var outputColor : Vec4;
+@param var tex : Sampler2D;
+var uv : Vec2;
+function fragment() {
+	outputColor = tex.get(uv);
+}
+----
+var buffer;
+var index;
+function init() {
+	setShaders([0, 1]);
+	buffer = loadBuffer(0);
+	index = loadBuffer(1);
+	var texture = loadTexture(2);
+	setVariable("tex", texture);
+}
+function update() {
+	draw(buffer, index);
+}
+----
+F:[0,0,0, 1,0,0, 0,1,0, 0,0,1, 1,1,0, 1,0,1, 0,1,1, 1,1,1]
+I:[0,1,5, 0,5,3, 1,4,7, 1,7,5, 3,5,7, 3,7,6, 0,6,2, 0,3,6, 2,7,4, 2,6,7, 0,4,1, 0,2,4]
+T:[DefaultTexture.png]
