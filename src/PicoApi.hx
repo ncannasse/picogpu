@@ -16,15 +16,15 @@ class PicoLinkedShader {
 class PicoApi {
 
 	var gpu : PicoGpu;
-	var currentShaders : Array<PicoShader>;
 	var shaderCombi : Map<String,PicoLinkedShader> = new Map();
 	var currentShader : PicoLinkedShader;
 	var currentMaterial : h3d.mat.Pass;
 	var currentOutput : h3d.pass.OutputShader;
-	var globals = new hxsl.Globals();
+	var renderCtx : h3d.impl.RenderContext;
+	var camera : h3d.Matrix;
 	var buffers = new h3d.shader.Buffers();
-	var camera = new h3d.Camera();
 	var needFlush = true;
+	var outTexture : h3d.mat.Texture;
 
 	var data : PicoData;
 	var memory : Array<PicoBuffer>;
@@ -32,9 +32,16 @@ class PicoApi {
 
 	public function new(gpu:PicoGpu) {
 		this.gpu = gpu;
+		renderCtx = @:privateAccess new h3d.impl.RenderContext();
 		currentOutput = new h3d.pass.OutputShader();
 		currentOutput.setOutput([Value("outputColor")],"outputPosition");
 		currentMaterial = new h3d.mat.Pass("default");
+	}
+
+	function resize( width : Int, height : Int ) {
+		outTexture = new h3d.mat.Texture(720,540,[Target]);
+		outTexture.depthBuffer = new h3d.mat.Texture(outTexture.width,outTexture.height,[Target],h3d.mat.Data.TextureFormat.Depth24Stencil8);
+		setCamera(new h3d.Camera().mcam);
 	}
 
 	function loadData( data : PicoData ) {
@@ -97,7 +104,7 @@ class PicoApi {
 			var sl = null;
 			for( i in 0...arr.length )
 				sl = new hxsl.ShaderList(shaders[arr.length - 1 - i].shader,sl);
-			var rt = currentOutput.compileShaders(globals, sl);
+			var rt = currentOutput.compileShaders(renderCtx.globals, sl);
 			sh = new PicoLinkedShader(rt,sl,shaders);
 			shaderCombi.set(key, sh);
 		}
@@ -108,22 +115,43 @@ class PicoApi {
 		return true;
 	}
 
-	public function setVariable( name : String, value : Dynamic ) {
+	public function setGlobal( name : String, value : Dynamic ) {
+		renderCtx.globals.set(name, value);
+	}
+
+	public function setParam( name : String, value : Dynamic ) {
 		if( currentShader != null ) {
 			for( s in currentShader.shaders )
 				s.shader.setVariable(name, value);
 		}
 	}
 
+	public function mat4(?arr:Array<Float>) {
+		return arr == null ? h3d.Matrix.I() : h3d.Matrix.L(arr);
+	}
+
+	public function cull( v : Int ) {
+		currentMaterial.culling = v == 0 ? None : v > 0 ? Back : Front;
+		needFlush = true;
+	}
+
+	public function setCamera( m : h3d.Matrix, fovY = 25.0 ) {
+		var cam = new h3d.Camera();
+		var out = new h3d.Matrix();
+		cam.screenRatio = @:privateAccess (outTexture.width / outTexture.height);
+		cam.fovY = fovY;
+		@:privateAccess cam.makeFrustumMatrix(out);
+		out.multiply(m, out);
+		setGlobal("cameraViewProj", out);
+	}
+
 	function flush() {
 		if( currentShader == null ) return;
 		if( !needFlush ) return;
 		needFlush = false;
-		camera.update();
-		setVariable("cameraViewProj", camera.m);
 		buffers.grow(currentShader.rt);
-		@:privateAccess gpu.s3d.ctx.fillGlobals(buffers,currentShader.rt);
-		@:privateAccess gpu.s3d.ctx.fillParams(buffers,currentShader.rt,currentShader.list);
+		renderCtx.fillGlobals(buffers,currentShader.rt);
+		renderCtx.fillParams(buffers,currentShader.rt,currentShader.list);
 		gpu.engine.selectMaterial(currentMaterial);
 		gpu.engine.selectShader(currentShader.rt);
 		gpu.engine.uploadShaderBuffers(buffers, Globals);

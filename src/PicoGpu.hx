@@ -78,6 +78,11 @@ class PicoWindow extends DynamicComponent {
 							for( i => m in ["Undef","I32","F32","Texture"] )
 								<button(m) id="memModes[]" onClick={() -> gpu.setMemMode(i)}/>
 						</flow>
+						<flow class="modeStride">
+							<button("-") onClick={() -> gpu.changeStride(-1)}/>
+							<text id="strideValue"/>
+							<button("+") onClick={() -> gpu.changeStride(1)}/>
+						</flow>
 						<text id="memTot"/>
 						<button("Save") id="memSave" onClick={() -> gpu.memSave()}/>
 					</flow>
@@ -151,17 +156,29 @@ class PicoGpu extends hxd.App {
 	var logText : Array<String> = [];
 	var checker : hscript.Checker;
 	var interp : hscript.Interp;
-	var outTexture : h3d.mat.Texture;
 	var editMode : DispMode;
 	var editShader : Int;
 	var editMemory : Int;
 	var editMemMode : Bool;
+	var editStride = 4;
+
+	var fileName = "current.gpu";
 
 	override function init() {
 		initSystem();
-		api.loadData(new PicoData());
+		load();
 		initUI();
 		start();
+	}
+
+	function load() {
+		var data = new PicoData();
+		data.loadText(try sys.io.File.getContent(fileName) catch( e : Dynamic ) hxd.Res.Defaults.entry.getText());
+		api.loadData(data);
+	}
+
+	function save() {
+		sys.io.File.saveContent(fileName, api.data.getText());
 	}
 
 	public function setBank(i) {
@@ -172,6 +189,12 @@ class PicoGpu extends hxd.App {
 		if( bytes < 1024 )
 			return bytes+"B";
 		return hxd.Math.fmt(bytes/1024)+"KB";
+	}
+
+	public function changeStride( v : Int ) {
+		editStride += v;
+		if( editStride <= 1 ) editStride = 1;
+		setMode(editMode);
 	}
 
 	public function setMode(mode,?index) {
@@ -191,13 +214,14 @@ class PicoGpu extends hxd.App {
 			if( index != null ) editMemory = index else index = editMemory;
 			var mem = api.data.memory[index];
 			if( mem == null ) mem = new PicoMem();
-			win.code.text = mem?.toCodeString() ?? "Uninitialize Memory. Select mode below.";
+			win.code.text = mem?.toCodeString(editStride) ?? "Uninitialize Memory. Select mode below.";
 			var tot = 0;
 			for( m in api.data.memory )
 				if( m != null )
 					tot += m.getMemSize();
 			win.code.canEdit = win.memSave.visible = mem.canEditCode();
 			win.memTot.text = "Size: "+fmtSize(mem.getMemSize())+"\nTotal: "+fmtSize(tot);
+			win.strideValue.text = ""+editStride;
 			for( i => b in win.memModes )
 				b.selected = mem.data.getIndex() == i;
 		}
@@ -283,13 +307,12 @@ class PicoGpu extends hxd.App {
 
 	function initSystem() {
 		api = new PicoApi(this);
+		api.resize(720,540);
 		checker = new hscript.Checker(hscript.LiveClass.getTypes());
 		switch( checker.types.resolve("PicoApi") ) {
 		case TInst(c,_): checker.setGlobals(c);
 		default:
 		}
-		outTexture = new h3d.mat.Texture(720,540,[Target]);
-		outTexture.depthBuffer = new h3d.mat.Texture(outTexture.width,outTexture.height,[Target],h3d.mat.Data.TextureFormat.Depth24Stencil8);
 	}
 
 	function initUI() {
@@ -306,8 +329,12 @@ class PicoGpu extends hxd.App {
 		style.allowInspect = true;
 		style.watchInterpComponents();
 		#end
-		win.scene.tile = h2d.Tile.fromTexture(outTexture);
+		win.scene.tile = h2d.Tile.fromTexture(api.outTexture);
 		win.code.onChange = function() if( editMode != Memory ) onCodeChange();
+		win.code.onKeyDown = function(e) {
+			if( e.keyCode == "S".code && hxd.Key.isDown(hxd.Key.CTRL) )
+				save();
+		}
 	}
 
 	function start() {
@@ -361,7 +388,7 @@ class PicoGpu extends hxd.App {
 
 	override function update(dt:Float) {
 		style.sync(dt);
-		engine.pushTarget(outTexture);
+		engine.pushTarget(api.outTexture);
 		engine.clear(0xFF000000,1,0);
 		@:privateAccess api.beginFrame();
 		if( interp != null ) {

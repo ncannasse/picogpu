@@ -22,10 +22,21 @@ class PicoMem {
 			data = Floats([for( v in arr ) Std.parseFloat(v)]);
 		case 'T'.code:
 			var file = arr[0];
-			var res = hxd.Res.load(file).toImage();
+			var res = arr[1] == null ? hxd.Res.load(file).toImage() : hxd.res.Any.fromBytes(file,haxe.crypto.Base64.decode(arr[1],false)).toImage();
 			data = Texture(file,res.entry.getBytes(), res.getPixels());
+		case 'U'.code:
+			data = Unknown;
 		default:
 			throw "assert";
+		}
+	}
+
+	public function encode() {
+		return switch( data ) {
+		case Unknown: "U";
+		case Ints(a): "I:"+a;
+		case Floats(a): "F:"+a;
+		case Texture(file, rawBytes, pixels): "T:["+file+","+haxe.crypto.Base64.encode(rawBytes,false)+"]";
 		}
 	}
 
@@ -60,13 +71,13 @@ class PicoMem {
 		}
 	}
 
-	public function toCodeString() {
+	public function toCodeString( stride : Int ) {
 		function split( arr : Array<Dynamic>, n : Int ) {
 			var b = new StringBuf();
 			b.addChar('['.code);
 			for( i => v in arr ) {
 				var v : Float = v;
-				if( i%4 == 0 ) b.addChar('\n'.code);
+				if( i%n == 0 ) b.addChar('\n'.code);
 				b.add(v);
 				b.add(', ');
 			}
@@ -78,9 +89,9 @@ class PicoMem {
 		case Unknown:
 			null;
 		case Ints(a):
-			split(a,4);
+			split(a,stride);
 		case Floats(a):
-			split(a,4);
+			split(a,stride);
 		case Texture(file, _):
 			file;
 		}
