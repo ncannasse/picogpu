@@ -15,27 +15,46 @@ class PicoLinkedShader {
 @:access(PicoBuffer)
 class PicoApi {
 
+	public static final FPS = 60;
+
 	var gpu : PicoGpu;
-	var shaderCombi : Map<String,PicoLinkedShader> = new Map();
+	var shaderCombi : Map<String,PicoLinkedShader>;
 	var currentShader : PicoLinkedShader;
 	var currentMaterial : h3d.mat.Pass;
 	var currentOutput : h3d.pass.OutputShader;
 	var renderCtx : h3d.impl.RenderContext;
-	var camera : h3d.Matrix;
-	var buffers = new h3d.shader.Buffers();
-	var needFlush = true;
+	var buffers : h3d.shader.Buffers;
 	var outTexture : h3d.mat.Texture;
+	var needFlush = true;
 
 	var data : PicoData;
 	var memory : Array<PicoBuffer>;
 	var shaders : Array<PicoShader>;
 
+	var startTime : Float;
+	var frameOffset = -1;
+
 	public function new(gpu:PicoGpu) {
 		this.gpu = gpu;
-		renderCtx = @:privateAccess new h3d.impl.RenderContext();
 		currentOutput = new h3d.pass.OutputShader();
 		currentOutput.setOutput([Value("outputColor")],"outputPosition");
+		reset();
+	}
+
+	function reset() {
+		buffers = new h3d.shader.Buffers();
+		shaderCombi = new Map();
+		renderCtx = @:privateAccess new h3d.impl.RenderContext();
 		currentMaterial = new h3d.mat.Pass("default");
+		currentShader = null;
+		needFlush = true;
+		frameOffset = -1;
+		if( memory != null ) {
+			for( m in memory )
+				m.dispose();
+		}
+		if( data != null )
+			loadData(data);
 	}
 
 	function resize( width : Int, height : Int ) {
@@ -64,26 +83,44 @@ class PicoApi {
 		}
 	}
 
+	// ---- BUFFERS & TEXTURES ----
+
 	function updateBuffer( index : Int ) {
 		var prev = memory[index];
 		prev?.dispose();
 		memory[index] = new PicoBuffer(data.memory[index]);
 	}
 
+	/**
+		Load the memory buffer at the given Memory index.
+		You can have up to 16 different memory buffers.
+		The total memory (including code data) cannot exceed 64KB
+	**/
 	public function loadBuffer( index : Int ) : PicoBuffer {
 		return memory[index];
 	}
 
-	public function loadTexture( index : Int, ?width : Int ) {
-		return memory[index]?.toTexture(width);
+	/**
+		Same as loadBuffer(index).getTexture()
+	**/
+	public function loadTexture( index : Int ) {
+		return memory[index]?.getTexture();
 	}
 
+	// ---- SHADERS -----
+
+	/**
+		Set the current shader, or a combination of two shaders.
+	**/
 	public function setShader( index : Int, ?fragment ) {
 		var arr = [index];
 		if( fragment != null ) arr.push(fragment);
 		return setShaders(arr);
 	}
 
+	/**
+		Set the current shader, as a combination of multiple shaders.
+	**/
 	public function setShaders( arr : Array<Int> ) {
 		var shaders = [];
 		for( index in arr ) {
@@ -115,10 +152,16 @@ class PicoApi {
 		return true;
 	}
 
+	/**
+		Set the global value. It will be accessible in shader variables with the @global qualifier.
+	**/
 	public function setGlobal( name : String, value : Dynamic ) {
 		renderCtx.globals.set(name, value);
 	}
 
+	/**
+		Set the parameter for all current shaders. It will be accessible in shader variables with the @param qualifier.
+	**/
 	public function setParam( name : String, value : Dynamic ) {
 		if( currentShader != null ) {
 			for( s in currentShader.shaders )
@@ -126,15 +169,10 @@ class PicoApi {
 		}
 	}
 
-	public function mat4(?arr:Array<Float>) {
-		return arr == null ? h3d.Matrix.I() : h3d.Matrix.L(arr);
-	}
-
-	public function cull( v : Int ) {
-		currentMaterial.culling = v == 0 ? None : v > 0 ? Back : Front;
-		needFlush = true;
-	}
-
+	/**
+		Set the camera rotation matrix, given the specified vertical FoV.
+		You can also directly set the cameraViewProj global.
+	**/
 	public function setCamera( m : h3d.Matrix, fovY = 25.0 ) {
 		var cam = new h3d.Camera();
 		var out = new h3d.Matrix();
@@ -144,6 +182,76 @@ class PicoApi {
 		out.multiply(m, out);
 		setGlobal("cameraViewProj", out);
 	}
+
+	// --- MATHS ----
+
+	/**
+		Create a 4x4 Matrix
+	**/
+	public function mat4(?arr:Array<Float>) {
+		return arr == null ? h3d.Matrix.I() : h3d.Matrix.L(arr);
+	}
+
+	/**
+		Create a 4-components Vector
+	**/
+	public function vec4( ?x = 0., ?y, ?z, ?w ) {
+		if( y == null && z == null && w == null )
+			return new h3d.Vector4(x,x,x,x);
+		return new h3d.Vector4(x,y,z,w);
+	}
+
+	/**
+		Create a 3-components Vector
+	**/
+	public function vec3( ?x = 0., ?y, ?z ) {
+		if( y == null && z == null )
+			return new h3d.Vector(x,x,x);
+		return new h3d.Vector(x,y,z);
+	}
+
+	/**
+		Create a Quaternion
+	**/
+	public function quat( x = 0., y = 0., z = 0., w = 1. ) {
+		return new h3d.Quat(x,y,z,w);
+	}
+
+	// --- MATERIAL ----
+
+	/**
+		Set the culling mode (0 = disable, 1 : back face, -1 : front face).
+	**/
+	public function cull( v : Int ) {
+		currentMaterial.culling = v == 0 ? None : v > 0 ? Back : Front;
+		needFlush = true;
+	}
+
+	/**
+		Set the blending mode. They can be accessessed using the `Blend` global
+	**/
+	public function blend( src, dst ) {
+		currentMaterial.blend(src, dst);
+		needFlush = true;
+	}
+
+	/**
+		Set the depth compare mode (using the `Compare` global) and tell if the depth should be written.
+	**/
+	public function depth( comp, write = true ) {
+		currentMaterial.depthTest = comp;
+		currentMaterial.depthWrite = write;
+		needFlush = true;
+	}
+
+	/**
+		Set the color mask bits for all write operations
+	**/
+	public function colorMask( bits = 15 ) {
+		currentMaterial.colorMask = bits;
+	}
+
+	// ---- DRAW -----
 
 	function flush() {
 		if( currentShader == null ) return;
@@ -160,6 +268,9 @@ class PicoApi {
 		gpu.engine.uploadShaderBuffers(buffers, Buffers);
 	}
 
+	/**
+		Draw using the vertex buffer using the current shader. Use either triangles or specified index buffer.
+	**/
 	public function draw( buffer : PicoBuffer, ?index : PicoBuffer, ?startTri = 0, ?drawTri = -1 ) {
 		if( currentShader == null ) return;
 		if( buffer == null ) {
@@ -177,24 +288,48 @@ class PicoApi {
 		return gpu.sevents.getFocus() != null;
 	}
 
+	// --- CONTROLS ----
+
+	/**
+		Checks if the keyboard key is currently down. Key codes are accessible with the `Key` global variable.
+	**/
 	public function keyDown( code : Int ) {
 		return !hasFocus() && hxd.Key.isDown(code);
 	}
 
+	/**
+		Checks if the keyboard key was pressed this frame. Key codes are accessible with the `Key` global variable.
+	**/
 	public function keyPressed( code : Int ) {
 		return !hasFocus() && hxd.Key.isPressed(code);
 	}
 
+	/**
+		Checks if the keyboard key was released this frame. Key codes are accessible with the `Key` global variable.
+	**/
 	public function keyReleased( code : Int ) {
 		return !hasFocus() && hxd.Key.isReleased(code);
 	}
 
+	/**
+		Log a message in the console.
+	**/
 	public function log( v : Dynamic ) {
 		gpu.logOnce(v);
 	}
 
 	function beginFrame() {
+		if( frameOffset < 0 ) {
+			startTime = haxe.Timer.stamp();
+			frameOffset = hxd.Timer.frameCount;
+		}
+		var frames = hxd.Timer.frameCount - frameOffset;
+		var time = startTime + frames / FPS;
+		// loop until exact FPS
+		while( haxe.Timer.stamp() < time ) {
+		}
 		needFlush = true;
+		setGlobal("time", frames / FPS);
 	}
 
 }
@@ -205,8 +340,33 @@ class PicoBuffer {
 	var texture : h3d.mat.Texture;
 	var bytes : haxe.io.Bytes;
 
+	/**
+		The size of the buffer, in bytes
+	**/
+	public var length(get,never) : Int;
+
 	public function new(mem) {
 		this.mem = mem;
+	}
+
+	function get_length() return getBytes().length;
+
+	public function getI32( index : Int ) {
+		return getBytes().getInt32(index << 2);
+	}
+
+	public function getF32( index : Int ) {
+		return getBytes().getFloat(index << 2);
+	}
+
+	public function setI32( index : Int, v : Int ) {
+		getBytes().setInt32(index << 2, v);
+		dispose();
+	}
+
+	public function setF32( index : Int, v : Single ) {
+		getBytes().setFloat(index << 2, v);
+		dispose();
 	}
 
 	function alloc(format:hxd.BufferFormat) {
@@ -222,7 +382,8 @@ class PicoBuffer {
 	function dispose() {
 		buffer?.dispose();
 		texture?.dispose();
-		bytes = null;
+		buffer = null;
+		texture = null;
 	}
 
 	function allocIndexes() {
@@ -230,26 +391,37 @@ class PicoBuffer {
 	}
 
 	function getBytes() {
-		if( bytes == null )
-			bytes = mem.getBytes();
+		if( bytes == null ) {
+			// make a copy so we can modify it later
+			var b = mem.getBytes();
+			bytes = b.sub(0, b.length);
+		}
 		return bytes;
 	}
 
-	public function toTexture( ?width : Int ) : PicoTexture {
-		if( width == null )
-			switch( mem.data ) {
-			case Texture(_,_,pix): width = pix.width;
-			default:
-				width = Std.int(Math.sqrt(getBytes().length>>4));
-			}
-		if( texture == null || texture.width != width ) {
-			var bytes = getBytes();
-			texture?.dispose();
-			texture = new h3d.mat.Texture(width, Std.int((bytes.length>>2)/width));
-			texture.uploadPixels(new hxd.Pixels(width,texture.height,bytes,BGRA));
+	/*
+		Convert the memory buffer into a texture to be used as shader variable
+		or another operation. If the buffer is modified, the texture will be disposed.
+	*/
+	public function getTexture() : PicoTexture {
+		if( texture != null )
+			return texture;
+		switch( mem.data ) {
+		case Texture(_,_,pix):
+			texture = new h3d.mat.Texture(pix.width, pix.height, [Target], pix.format);
+			texture.uploadPixels(new hxd.Pixels(pix.width,pix.height,getBytes(),pix.format));
+		default:
+			var size = bytes.length>>4;
+			var width = Std.int(Math.sqrt(size));
+			var height = Std.int(size/width);
+			texture = new h3d.mat.Texture(width, height, [Target]);
+			texture.uploadPixels(new hxd.Pixels(width,height,bytes,BGRA));
 		}
+		texture.wrap = Repeat;
+		texture.filter = Nearest;
 		return texture;
 	}
+
 }
 
 class PicoShader {
@@ -281,5 +453,12 @@ class PicoShader {
 
 }
 
+@:forward(width,height,isDisposed)
 abstract PicoTexture(h3d.mat.Texture) from h3d.mat.Texture {
+	public function filter( b : Bool ) {
+		this.filter = b ? Linear : Nearest;
+	}
+	public function wrap( b : Bool ) {
+		this.wrap = b ? Repeat : Clamp;
+	}
 }

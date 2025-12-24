@@ -149,6 +149,12 @@ class PicoWindow extends DynamicComponent {
 class PicoGpu extends hxd.App {
 
 	public static var VERSION = "0.1";
+	static var GLOBALS = [
+		"Key" => "hxd.Key",
+		"Blend" => "h3d.mat.Blend",
+		"Compare" => "h3d.mat.Compare",
+		"Stencil" => "h3d.mat.StencilOp"
+	];
 
 	var win : PicoWindow;
 	var api : PicoApi;
@@ -314,11 +320,14 @@ class PicoGpu extends hxd.App {
 		case TInst(c,_): checker.setGlobals(c);
 		default:
 		}
-		switch( checker.types.resolve("hxd.Key") ) {
-		case TInst(c,_):
-			checker.setGlobal("Key", c.staticClass);
-		default:
-		}
+		for( name => cl in GLOBALS )
+			switch( checker.types.resolve(cl) ) {
+			case TInst(c,_):
+				checker.setGlobal(name, c.staticClass);
+			case TEnum(e,_):
+				checker.setGlobal(name, e.enumClass);
+			default:
+			}
 	}
 
 	function initUI() {
@@ -355,6 +364,7 @@ class PicoGpu extends hxd.App {
 		var expr = parser.parseString(api.data.code,"");
 		checker.check(expr);
 		interp = new hscript.Interp();
+		interp.allowTypeResolve();
 		for( f in Type.getInstanceFields(Type.getClass(api)) ) {
 			var v : Dynamic = Reflect.field(api,f);
 			if( v != null && Reflect.isFunction(v) )
@@ -368,7 +378,13 @@ class PicoGpu extends hxd.App {
 			interp = null;
 			return;
 		}
-		interp.variables.set("Key", hxd.Key);
+		for( name => cl in GLOBALS ) {
+			var t : Dynamic = Type.resolveClass(cl);
+			if( t == null ) t = Type.resolveEnum(cl);
+			if( t == null ) throw "assert";
+			interp.variables.set(name, t);
+		}
+		api.reset();
 		interp.execute(expr);
 		var init : Dynamic = interp.variables.get("init");
 		if( init != null && Reflect.isFunction(init) )
@@ -376,14 +392,14 @@ class PicoGpu extends hxd.App {
 	}
 
 	public function log( msg : Dynamic ) {
-		logText.push(Std.string(msg));
+		logText.push(StringTools.htmlEscape(Std.string(msg)));
 		while( logText.length > 500 ) logText.shift();
 		win.log.text = logText.join("<br/>");
 		win.logContent.scrollPosY = 100000;
 	}
 
 	public function logOnce( str : String ) {
-		if( logText[logText.length-1] == str ) return;
+		if( logText[logText.length-1] == StringTools.htmlEscape(str) ) return;
 		log(str);
 	}
 
