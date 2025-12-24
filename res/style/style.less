@@ -131,6 +131,7 @@ pico-window {
 		}
 		.memPanel {
 			visible : false;
+			min-width : 150;
 			background : #333;
 			padding : 5;
 			position: absolute;
@@ -160,6 +161,19 @@ pico-window {
 				}
 			}
 		}
+		.samples {
+			visible : false;
+			position: absolute;
+			align : middle middle;
+			padding : 20;
+			background: #444;
+			layout : vertical;
+			vspacing : 10;
+			button {
+				width : 120;
+				padding : 2 5;
+			}
+		}
 	}
 
 	&.mode-memory {
@@ -170,6 +184,18 @@ pico-window {
 			.memPanel .modeSelect button {
 				visible : true;
 			}
+		}
+	}
+
+	&.mode-samples {
+		.samples {
+			visible : true;
+		}
+		.banks {
+			visible : false;
+		}
+		input {
+			alpha : 0;
 		}
 	}
 

@@ -17,6 +17,7 @@ class PicoData {
 		code = get();
 		var memlines = get();
 		memory = [for( l in memlines.split("\n") ) { var m = new PicoMem(); m.decode(StringTools.trim(l)); m; }];
+		while( memory.length < 16 ) memory.push(new PicoMem());
 	}
 
 	public function getText() {
@@ -24,7 +25,7 @@ class PicoData {
 			"PICO-GPU.1",
 			shaders.join("\n----\n"),
 			code,
-			[for( m in memory ) m.encode()].join("\n"),
+			[for( m in memory ) m == null ? "U" : m.encode()].join("\n"),
 		].join("\n#----\n");
 	}
 

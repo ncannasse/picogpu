@@ -92,8 +92,8 @@ class PicoMem {
 			split(a,stride);
 		case Floats(a):
 			split(a,stride);
-		case Texture(file, _):
-			file;
+		case Texture(file, _, pixels):
+			file+"("+pixels.width+"x"+pixels.height+" "+pixels.format+")";
 		}
 	}
 

@@ -13,6 +13,7 @@ class PicoLinkedShader {
 }
 
 @:access(PicoBuffer)
+@:access(PicoTexture)
 class PicoApi {
 
 	public static final FPS = 60;
@@ -85,12 +86,6 @@ class PicoApi {
 
 	// ---- BUFFERS & TEXTURES ----
 
-	function updateBuffer( index : Int ) {
-		var prev = memory[index];
-		prev?.dispose();
-		memory[index] = new PicoBuffer(data.memory[index]);
-	}
-
 	/**
 		Load the memory buffer at the given Memory index.
 		You can have up to 16 different memory buffers.
@@ -139,8 +134,8 @@ class PicoApi {
 		var sh = shaderCombi.get(key);
 		if( sh == null ) {
 			var sl = null;
-			for( i in 0...arr.length )
-				sl = new hxsl.ShaderList(shaders[arr.length - 1 - i].shader,sl);
+			for( s in shaders )
+				sl = new hxsl.ShaderList(s.shader,sl);
 			var rt = currentOutput.compileShaders(renderCtx.globals, sl);
 			sh = new PicoLinkedShader(rt,sl,shaders);
 			shaderCombi.set(key, sh);
@@ -266,6 +261,20 @@ class PicoApi {
 		gpu.engine.uploadShaderBuffers(buffers, Params);
 		gpu.engine.uploadShaderBuffers(buffers, Textures);
 		gpu.engine.uploadShaderBuffers(buffers, Buffers);
+	}
+
+	/**
+		Change the current render target. Call with null or 0 parameters to reset the default output.
+	**/
+	public function setTarget( ?t : PicoTexture ) {
+		gpu.engine.driver.setRenderTarget(t.tex ?? outTexture);
+	}
+
+	/**
+		Clear the current target color.
+	**/
+	public function clear( color ) {
+		gpu.engine.driver.clear(color);
 	}
 
 	/**
@@ -407,11 +416,13 @@ class PicoBuffer {
 		if( texture != null )
 			return texture;
 		switch( mem.data ) {
+		case Unknown:
+			return null;
 		case Texture(_,_,pix):
 			texture = new h3d.mat.Texture(pix.width, pix.height, [Target], pix.format);
 			texture.uploadPixels(new hxd.Pixels(pix.width,pix.height,getBytes(),pix.format));
 		default:
-			var size = bytes.length>>4;
+			var size = getBytes().length>>2;
 			var width = Std.int(Math.sqrt(size));
 			var height = Std.int(size/width);
 			texture = new h3d.mat.Texture(width, height, [Target]);
@@ -455,6 +466,10 @@ class PicoShader {
 
 @:forward(width,height,isDisposed)
 abstract PicoTexture(h3d.mat.Texture) from h3d.mat.Texture {
+
+	var tex(get,never) : h3d.mat.Texture;
+	inline function get_tex() return this;
+
 	public function filter( b : Bool ) {
 		this.filter = b ? Linear : Nearest;
 	}

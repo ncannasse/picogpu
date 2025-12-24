@@ -4,6 +4,7 @@ enum DispMode {
 	Code;
 	Shaders;
 	Memory;
+	Samples;
 }
 
 @:uiNoComponent @:uiInitFunction(init)
@@ -61,6 +62,7 @@ class PicoWindow extends DynamicComponent {
 			<button("Code") onClick={() -> gpu.setMode(Code)} id="modes[]"/>
 			<button("Shaders") onClick={() -> gpu.setMode(Shaders)} id="modes[]"/>
 			<button("Memory") onClick={() -> gpu.setMode(Memory)} id="modes[]"/>
+			<button("Samples") onClick={() -> gpu.setMode(Samples)} id="modes[]"/>
 		</flow>
 		<flow class="content">
 			<flow class="code">
@@ -85,6 +87,10 @@ class PicoWindow extends DynamicComponent {
 						</flow>
 						<text id="memTot"/>
 						<button("Save") id="memSave" onClick={() -> gpu.memSave()}/>
+					</flow>
+					<flow class="samples">
+						for( s in hxd.Res.load("samples") )
+							<button("Load "+s.name.substr(0,-4)) onClick={() -> gpu.loadSample(s.name)}/>
 					</flow>
 				</flow>
 			</flow>
@@ -178,13 +184,21 @@ class PicoGpu extends hxd.App {
 	}
 
 	function load() {
+		var content = try sys.io.File.getContent(fileName) catch( e : Dynamic ) { loadSample("Start.gpu"); return; };
 		var data = new PicoData();
-		data.loadText(try sys.io.File.getContent(fileName) catch( e : Dynamic ) hxd.Res.Defaults.entry.getText());
+		data.loadText(content);
 		api.loadData(data);
 	}
 
 	function save() {
 		sys.io.File.saveContent(fileName, api.data.getText());
+	}
+
+	public function loadSample( name : String ) {
+		var data = new PicoData();
+		data.loadText(hxd.Res.load("samples/"+name).entry.getText());
+		api.loadData(data);
+		if( win != null ) setMode(Code);
 	}
 
 	public function setBank(i) {
@@ -219,7 +233,6 @@ class PicoGpu extends hxd.App {
 		case Memory:
 			if( index != null ) editMemory = index else index = editMemory;
 			var mem = api.data.memory[index];
-			if( mem == null ) mem = new PicoMem();
 			win.code.text = mem?.toCodeString(editStride) ?? "Uninitialize Memory. Select mode below.";
 			win.code.canEdit = win.memSave.visible = mem.canEditCode();
 			win.memTot.text = [
@@ -230,6 +243,7 @@ class PicoGpu extends hxd.App {
 			win.strideValue.text = ""+editStride;
 			for( i => b in win.memModes )
 				b.selected = mem.data.getIndex() == i;
+		case Samples:
 		}
 		for( k => b in win.modes )
 			b.selected = mode.getIndex() == k;
@@ -252,9 +266,9 @@ class PicoGpu extends hxd.App {
 		var mem = new PicoMem();
 		mem.setMode(mode);
 
-		function flush() {
-			if( api.data.memory[editMemory]?.data.getIndex() != mode )
-				api.data.memory[editMemory] = mem.data == Unknown ? null : mem;
+		function flush(force=false) {
+			if( force || api.data.memory[editMemory].data.getIndex() != mode )
+				api.data.memory[editMemory] = mem;
 			setMode(Memory);
 			onCodeChange();
 		}
@@ -266,7 +280,7 @@ class PicoGpu extends hxd.App {
 					var file = sel.fileName.split("\\").join("/").split("/").pop();
 					var pixels = try hxd.res.Any.fromBytes(file,bytes).toImage().getPixels() catch( e : Dynamic ) { log(Std.string(e)); return; }
 					mem.data = Texture(file, bytes, pixels);
-					flush();
+					flush(true);
 				});
 			},{ title : "Select image", fileTypes : [{ name : "Image", extensions: ["png","jpg","jpeg","tga","dds"] }]});
 			return;
@@ -296,10 +310,14 @@ class PicoGpu extends hxd.App {
 					compileCode(); // force reinit program
 				case Memory:
 					var m = api.data.memory[editMemory];
-					if( m == null ) return;
-					m.parseCode(code);
-					api.updateBuffer(editMemory);
+					switch( m.data ) {
+					case Unknown, Texture(_):
+					default:
+						m.parseCode(code);
+						setMode(Memory); // reformat
+					}
 					compileCode(); // force reinit program
+				case Samples:
 				}
 			} catch( e : hscript.Expr.Error ) {
 				win.setError(e.line, e.toString());
@@ -345,7 +363,7 @@ class PicoGpu extends hxd.App {
 		style.watchInterpComponents();
 		#end
 		win.scene.tile = h2d.Tile.fromTexture(api.outTexture);
-		win.code.onChange = function() if( editMode != Memory ) onCodeChange();
+		win.code.onChange = function() if( editMode == Memory ) win.updateLineNumbers() else onCodeChange();
 		win.code.onKeyDown = function(e) {
 			if( e.keyCode == "S".code && hxd.Key.isDown(hxd.Key.CTRL) )
 				save();
@@ -385,10 +403,7 @@ class PicoGpu extends hxd.App {
 			interp.variables.set(name, t);
 		}
 		api.reset();
-		interp.execute(expr);
-		var init : Dynamic = interp.variables.get("init");
-		if( init != null && Reflect.isFunction(init) )
-			handleRuntimeError(() -> init());
+		handleRuntimeError(() -> interp.execute(expr));
 	}
 
 	public function log( msg : Dynamic ) {
