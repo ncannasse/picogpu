@@ -73,6 +73,17 @@ class PicoMem {
 
 	public function toCodeString( stride : Int ) {
 		function split( arr : Array<Dynamic>, n : Int ) {
+			var v0 = arr[0];
+			if( arr.length > 4 ) {
+				var same = true;
+				for( v in arr )
+					if( v != v0 ) {
+						same = false;
+						break;
+					}
+				if( same )
+					return "["+v0+"]["+arr.length+"]";
+			}
 			var b = new StringBuf();
 			b.addChar('['.code);
 			for( i => v in arr ) {
@@ -106,8 +117,12 @@ class PicoMem {
 		switch( [data,expr.e] ) {
 		case [Ints(_), EArrayDecl(el)]:
 			data = Ints([for( e in el ) switch( e.e ) { case EConst(CInt(v)): v; default: invalid(e); }]);
+		case [Ints(_), EArray({ e : EArrayDecl([{ e : EConst(CInt(v)) }])},{ e : EConst(CInt(len)) })]:
+			data = Ints([for( i in 0...len ) v]);
 		case [Floats(_), EArrayDecl(el)]:
 			data = Floats([for( e in el ) switch( e.e ) { case EConst(CInt(v)): v; case EConst(CFloat(f)): f; default: invalid(e); }]);
+		case [Floats(_), EArray({ e : EArrayDecl([{ e : EConst(CFloat(v)) }])},{ e : EConst(CInt(len)) })]:
+			data = Floats([for( i in 0...len ) v]);
 		default:
 			invalid(expr);
 		}
