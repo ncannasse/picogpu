@@ -2,7 +2,7 @@ enum PicoMemData {
 	Unknown;
 	Ints( a : Array<Int> );
 	Floats( a : Array<Single> );
-	Texture( file : String, rawBytes : haxe.io.Bytes, pixels : hxd.Pixels );
+	Texture( file : String, pixels : hxd.Pixels );
 }
 
 class PicoMem {
@@ -22,8 +22,8 @@ class PicoMem {
 			data = Floats([for( v in arr ) Std.parseFloat(v)]);
 		case 'T'.code:
 			var file = arr[0];
-			var res = arr[1] == null ? hxd.Res.load(file).toImage() : hxd.res.Any.fromBytes(file,haxe.crypto.Base64.decode(arr[1],false)).toImage();
-			data = Texture(file,res.entry.getBytes(), res.getPixels());
+			var res = hxd.Res.load(file).toImage();
+			data = Texture(file,res.getPixels());
 		case 'U'.code:
 			data = Unknown;
 		default:
@@ -36,7 +36,7 @@ class PicoMem {
 		case Unknown: "U";
 		case Ints(a): "I:"+a;
 		case Floats(a): "F:"+a;
-		case Texture(file, rawBytes, pixels): "T:["+file+","+haxe.crypto.Base64.encode(rawBytes,false)+"]";
+		case Texture(file, pixels): "T:["+file+"]";
 		}
 	}
 
@@ -49,7 +49,7 @@ class PicoMem {
 		case 2:
 			data = Floats([]);
 		case 3:
-			data = Texture(null, null, null);
+			data = Texture(null, null);
 		default:
 			throw "assert";
 		}
@@ -67,7 +67,50 @@ class PicoMem {
 		case Unknown: null;
 		case Ints(arr): @:privateAccess new haxe.io.Bytes(hl.Bytes.getArray(arr), arr.length << 2);
 		case Floats(arr): @:privateAccess new haxe.io.Bytes(hl.Bytes.getArray(arr), arr.length << 2);
-		case Texture(_,_,pix): pix.bytes;
+		case Texture(_,pix): pix.bytes;
+		}
+	}
+
+	public function encodeBytes( out : haxe.io.BytesBuffer ) {
+		out.addByte(data.getIndex());
+		switch( data ) {
+		case Unknown:
+		case Ints(a):
+			out.addInt32(a.length);
+			for( v in a )
+				out.addInt32(v);
+		case Floats(a):
+			out.addInt32(a.length);
+			for( v in a )
+				out.addFloat(v);
+		case Texture(file, pixels):
+			out.addByte(haxe.io.Bytes.ofString(file).length);
+			out.addString(file);
+			out.addInt32(pixels.width);
+			out.addInt32(pixels.height);
+			out.addByte(pixels.format.getIndex());
+			out.addBytes(pixels.bytes,0,pixels.bytes.length);
+		}
+	}
+
+	public function decodeBytes( input : haxe.io.Input ) {
+		switch( input.readByte() ) {
+		case 0:
+			data = Unknown;
+		case 1:
+			data = Ints([for( i in 0...input.readInt32() ) input.readInt32()]);
+		case 2:
+			data = Floats([for( i in 0...input.readInt32() ) input.readFloat()]);
+		case 3:
+			var file = input.readString(input.readByte());
+			var w = input.readInt32();
+			var h = input.readInt32();
+			var format = hxd.PixelFormat.createByIndex(input.readByte());
+			var pixels = new hxd.Pixels(w,h,null,format);
+			pixels.bytes = input.read(pixels.dataSize);
+			data = Texture(file,pixels);
+		default:
+			throw "assert";
 		}
 	}
 
@@ -103,7 +146,7 @@ class PicoMem {
 			split(a,stride);
 		case Floats(a):
 			split(a,stride);
-		case Texture(file, _, pixels):
+		case Texture(file, pixels):
 			file+"("+pixels.width+"x"+pixels.height+" "+pixels.format+")";
 		}
 	}
@@ -136,7 +179,7 @@ class PicoMem {
 			a.length * 4;
 		case Floats(a):
 			a.length * 4;
-		case Texture(_, _, pixels):
+		case Texture(_, pixels):
 			pixels?.dataSize;
 		}
 	}

@@ -17,6 +17,9 @@ class PicoLinkedShader {
 class PicoApi {
 
 	public static final FPS = 60;
+	public static final WIDTH = 640;
+	public static final HEIGHT = 480;
+	public static final MAX_SIZE = WIDTH * HEIGHT;
 
 	var gpu : PicoGpu;
 	var shaderCombi : Map<String,PicoLinkedShader>;
@@ -40,6 +43,7 @@ class PicoApi {
 		currentOutput = new h3d.pass.OutputShader();
 		currentOutput.setOutput([Value("outputColor")],"outputPosition");
 		reset();
+		init();
 	}
 
 	function reset() {
@@ -58,9 +62,9 @@ class PicoApi {
 			loadData(data);
 	}
 
-	function resize( width : Int, height : Int ) {
-		outTexture = new h3d.mat.Texture(width,height,[Target]);
-		outTexture.depthBuffer = new h3d.mat.Texture(outTexture.width,outTexture.height,[Target],h3d.mat.Data.TextureFormat.Depth24Stencil8);
+	function init() {
+		outTexture = new h3d.mat.Texture(WIDTH,HEIGHT,[Target]);
+		outTexture.depthBuffer = new h3d.mat.Texture(WIDTH,HEIGHT,[Target],h3d.mat.Data.TextureFormat.Depth24Stencil8);
 		setCamera(new h3d.Camera().mcam);
 	}
 
@@ -418,7 +422,7 @@ class PicoBuffer {
 		switch( mem.data ) {
 		case Unknown:
 			return null;
-		case Texture(_,_,pix):
+		case Texture(_,pix):
 			texture = new h3d.mat.Texture(pix.width, pix.height, [Target], pix.format);
 			texture.uploadPixels(new hxd.Pixels(pix.width,pix.height,getBytes(),pix.format));
 		default:

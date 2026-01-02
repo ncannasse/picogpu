@@ -63,7 +63,9 @@ class PicoWindow extends DynamicComponent {
 			<button("Shaders") onClick={() -> gpu.setMode(Shaders)} id="modes[]"/>
 			<button("Memory") onClick={() -> gpu.setMode(Memory)} id="modes[]"/>
 			<button("Samples") onClick={() -> gpu.setMode(Samples)} id="modes[]"/>
-			<button("Run [F5]") onClick={() -> gpu.run()}/>
+			<button("Run [F5]") class="act" onClick={() -> gpu.run()} id="modes[]"/>
+			<button("Save") class="act" onClick={() -> gpu.save(hxd.Key.isDown(hxd.Key.CTRL),hxd.Key.isDown(hxd.Key.ALT)) } id="modes[]"/>
+			<button("Load") class="act" onClick={() -> gpu.load()} id="modes[]"/>
 		</flow>
 		<flow class="content">
 			<flow class="code">
@@ -178,31 +180,92 @@ class PicoGpu extends hxd.App {
 	var editMemMode : Bool;
 	var editStride = 4;
 	var prevIndex : Int;
-
-	var fileName = "current.gpu";
+	var fileName = null;
 
 	override function init() {
 		initSystem();
-		load();
+		var data = fileName == null ? null : try sys.io.File.getBytes(fileName) catch( e : Dynamic ) null;
+		if( data == null ) loadSample("Start.gpu") else loadData(data);
 		initUI();
 		start();
 	}
 
-	function load() {
-		var content = try sys.io.File.getContent(fileName) catch( e : Dynamic ) { loadSample("Start.gpu"); return; };
-		var data = new PicoData();
-		data.loadText(content);
-		api.loadData(data);
+	public function load() {
+		hxd.File.browse(function(sel) {
+			sel.load(function(bytes) {
+				win.clearError();
+				handleRuntimeError(() -> {
+					loadData(bytes);
+					this.fileName = sel.fileName;
+				});
+			});
+		},{ title : "Select Data File", fileTypes : [{ name : "PICO GPU", extensions: ["png"] }]});
 	}
 
-	function save() {
-		sys.io.File.saveContent(fileName, api.data.getText());
+	function loadData( bytes : haxe.io.Bytes ) {
+		var png = new format.png.Reader(new haxe.io.BytesInput(bytes)).read();
+		var header = format.png.Tools.getHeader(png);
+		if( header.width * header.height != PicoApi.MAX_SIZE )
+			throw "Invalid PNG format";
+		var pngData = format.png.Tools.extract32(png);
+		var bdat = haxe.io.Bytes.alloc(PicoApi.MAX_SIZE);
+		for( i in 0...PicoApi.MAX_SIZE ) {
+			var p = pngData.getInt32(i << 2);
+			var v = ((p&3) << 6) | (((p >> 8) & 3) << 4) | (((p >> 16) & 3) << 2) | ((p >> 24) & 3);
+			bdat.set(i, v);
+		}
+		var data = new PicoData();
+		data.loadBytes(bdat);
+		api.loadData(data);
+		setMode(Code);
+	}
+
+	public function save( newFile=false, textMode=false ) {
+		if( !compileCode() )
+			return;
+		var upd = null;
+		var screen : Dynamic = interp.variables.get("screenshot");
+		if( screen != null && Reflect.isFunction(screen) ) upd = "screenshot";
+		draw(upd);
+		var pix = @:privateAccess api.outTexture.capturePixels();
+		if( pix.width * pix.height != PicoApi.MAX_SIZE ) throw "assert";
+		pix.convert(ARGB);
+		var data = api.data.getBytes();
+		for( i in 0...PicoApi.MAX_SIZE ) {
+			var b = i < data.length ? data.get(i) : 0;
+			var col = pix.bytes.getInt32(i << 2);
+			col &= 0xFCFCFCFC;
+			col |= b & 3;
+			col |= ((b >> 2) & 3) << 8;
+			col |= ((b >> 4) & 3) << 16;
+			col |= ((b >> 6) & 3) << 24;
+			pix.bytes.setInt32(i << 2, col);
+		}
+		var png = format.png.Tools.build32ARGB(pix.width,pix.height,pix.bytes);
+		var pngOut = new haxe.io.BytesOutput();
+		new format.png.Writer(pngOut).write(png);
+		var pngData = pngOut.getBytes();
+		var ext = "png";
+		if( textMode ) {
+			pngData = haxe.io.Bytes.ofString(api.data.getText());
+			ext = "gpu";
+		}
+		if( fileName == null || newFile ) {
+			hxd.File.saveAs(pngData,{
+				title : "Select Data File",
+				defaultPath: "PicoGpuNew."+ext,
+				fileTypes : [{ name : "PICO GPU", extensions: [ext] }],
+				saveFileName : (name) -> fileName = name,
+			});
+		} else
+			sys.io.File.saveBytes(fileName, pngData);
 	}
 
 	public function loadSample( name : String ) {
 		var data = new PicoData();
 		data.loadText(hxd.Res.load("samples/"+name).entry.getText());
 		api.loadData(data);
+		fileName = null;
 		if( win != null ) setMode(Code);
 	}
 
@@ -284,7 +347,7 @@ class PicoGpu extends hxd.App {
 				sel.load(function(bytes) {
 					var file = sel.fileName.split("\\").join("/").split("/").pop();
 					var pixels = try hxd.res.Any.fromBytes(file,bytes).toImage().getPixels() catch( e : Dynamic ) { log(Std.string(e)); return; }
-					mem.data = Texture(file, bytes, pixels);
+					mem.data = Texture(file, pixels);
 					flush(true);
 				});
 			},{ title : "Select image", fileTypes : [{ name : "Image", extensions: ["png","jpg","jpeg","tga","dds"] }]});
@@ -337,7 +400,6 @@ class PicoGpu extends hxd.App {
 
 	function initSystem() {
 		api = new PicoApi(this);
-		api.resize(640,480);
 		checker = new hscript.Checker(hscript.LiveClass.getTypes());
 		switch( checker.types.resolve("PicoApi") ) {
 		case TInst(c,_): checker.setGlobals(c);
@@ -411,11 +473,13 @@ class PicoGpu extends hxd.App {
 		interp.variables.set("trace", Reflect.makeVarArgs(function(args) {
 			log(Std.string(args[0]));
 		}));
-		if( api.data.getTotalSize() > 64<<10 ) {
-			handleRuntimeError(() -> throw "Total mem size is "+fmtSize(api.data.getTotalSize())+" >64KB");
+
+		if( api.data.getTotalSize() > PicoApi.MAX_SIZE ) {
+			handleRuntimeError(() -> throw "Total mem size is "+fmtSize(api.data.getTotalSize())+" >"+fmtSize(PicoApi.MAX_SIZE));
 			interp = null;
-			return;
+			return false;
 		}
+
 		for( name => cl in GLOBALS ) {
 			var t : Dynamic = Type.resolveClass(cl);
 			if( t == null ) t = Type.resolveEnum(cl);
@@ -424,6 +488,7 @@ class PicoGpu extends hxd.App {
 		}
 		api.reset();
 		handleRuntimeError(() -> interp.execute(expr));
+		return !win.hasError();
 	}
 
 	public function log( msg : Dynamic ) {
@@ -438,7 +503,7 @@ class PicoGpu extends hxd.App {
 		log(str);
 	}
 
-	function handleRuntimeError( f ) {
+	function handleRuntimeError( f : Void -> Void ) {
 		try {
 			f();
 		} catch( e : Dynamic ) {
@@ -449,16 +514,20 @@ class PicoGpu extends hxd.App {
 		}
 	}
 
-	override function update(dt:Float) {
-		style.sync(dt);
+	function draw( ?callb : String = "update" ) {
 		engine.pushTarget(api.outTexture);
 		engine.clear(0xFF000000,1,0);
 		@:privateAccess api.beginFrame();
 		if( interp != null ) {
-			var upd : Dynamic = interp.variables.get("update");
+			var upd : Dynamic = interp.variables.get(callb);
 			if( upd != null && Reflect.isFunction(upd) ) handleRuntimeError(() -> upd());
 		}
 		engine.popTarget();
+	}
+
+	override function update(dt:Float) {
+		style.sync(dt);
+		draw();
 		if( win.dom.hasClass("fullscreen") ) {
 			if( hxd.Key.isPressed(hxd.Key.ESCAPE) ) {
 				engine.fullScreen = false;
@@ -472,8 +541,8 @@ class PicoGpu extends hxd.App {
 		} else {
 			if( hxd.Key.isPressed(hxd.Key.F11) )
 				run(false);
-			for( i in 0...4 )
-				if( hxd.Key.isPressed(hxd.Key.F1+i) )
+			for( i => m in win.modes )
+				if( i != 4 && hxd.Key.isPressed(hxd.Key.F1+i) )
 					win.modes[i].onClick();
 		}
 		if( hxd.Key.isPressed(hxd.Key.F5) )
