@@ -59,7 +59,7 @@ class PicoApi {
 	}
 
 	function resize( width : Int, height : Int ) {
-		outTexture = new h3d.mat.Texture(720,540,[Target]);
+		outTexture = new h3d.mat.Texture(width,height,[Target]);
 		outTexture.depthBuffer = new h3d.mat.Texture(outTexture.width,outTexture.height,[Target],h3d.mat.Data.TextureFormat.Depth24Stencil8);
 		setCamera(new h3d.Camera().mcam);
 	}

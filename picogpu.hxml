@@ -5,7 +5,7 @@
 -hl picogpu.hl
 -cp src
 -D hscriptPos
--D windowSize=720x540
+-D windowSize=640x480
 -D windowTitle=PicoGPU
 -xml api.xml
 -main PicoGpu

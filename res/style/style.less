@@ -1,5 +1,5 @@
-@width : 720;
-@height : 540;
+@width : 640;
+@height : 480;
 @bar : 20;
 @cheight : @height - @bar * 2;
 
@@ -108,20 +108,18 @@ pico-window {
 			.scene, .log {
 				content-align : top;
 				fill-width : true;
-				fill-height : true;
-				auto-size-height : 0.5;
 			}
 			.scene {
 				background : black;
 				bitmap {
 					width : @width * 0.5;
-					height : @cheight * 0.5;
+					height : @height * 0.5;
 				}
 			}
 			.log {
 				background : #333;
 				padding : 5;
-				height : @cheight * 0.5;
+				height : @height * 0.5 - @bar * 2;
 			}
 			.log-content {
 				fill-width : true;
@@ -176,6 +174,10 @@ pico-window {
 		}
 	}
 
+	.fullscreen {
+		visible : false;
+	}
+
 	&.mode-memory {
 		.memPanel {
 			visible : true;
@@ -202,6 +204,22 @@ pico-window {
 	&.mode-code {
 		.banks {
 			visible : false;
+		}
+	}
+
+	&.fullscreen {
+		>object {
+			visible : false;
+		}
+		>.fullscreen {
+			visible : true;
+		}
+	}
+
+	&.fullwindow {
+		content-align : middle middle;
+		.fullscreen {
+			scale : 2;
 		}
 	}
 }

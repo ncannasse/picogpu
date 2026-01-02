@@ -63,6 +63,7 @@ class PicoWindow extends DynamicComponent {
 			<button("Shaders") onClick={() -> gpu.setMode(Shaders)} id="modes[]"/>
 			<button("Memory") onClick={() -> gpu.setMode(Memory)} id="modes[]"/>
 			<button("Samples") onClick={() -> gpu.setMode(Samples)} id="modes[]"/>
+			<button("Run [F5]") onClick={() -> gpu.run()}/>
 		</flow>
 		<flow class="content">
 			<flow class="code">
@@ -111,14 +112,17 @@ class PicoWindow extends DynamicComponent {
 			</flow>
 			<text text={"PicoGPU v"+PicoGpu.VERSION} class="ver"/>
 		</flow>
+		<flow class="fullscreen">
+			<bitmap id="sceneFS"/>
+		</flow>
 	</pico-window>
 
 	var errorLine : Int = -1;
 	var gpu : PicoGpu;
 
 	public function new(gpu:PicoGpu,?parent) {
-		super(parent);
 		this.gpu = gpu;
+		super(parent);
 	}
 
 	override function init() {
@@ -173,6 +177,7 @@ class PicoGpu extends hxd.App {
 	var editMemory : Int;
 	var editMemMode : Bool;
 	var editStride = 4;
+	var prevIndex : Int;
 
 	var fileName = "current.gpu";
 
@@ -332,7 +337,7 @@ class PicoGpu extends hxd.App {
 
 	function initSystem() {
 		api = new PicoApi(this);
-		api.resize(720,540);
+		api.resize(640,480);
 		checker = new hscript.Checker(hscript.LiveClass.getTypes());
 		switch( checker.types.resolve("PicoApi") ) {
 		case TInst(c,_): checker.setGlobals(c);
@@ -362,11 +367,26 @@ class PicoGpu extends hxd.App {
 		style.allowInspect = true;
 		style.watchInterpComponents();
 		#end
-		win.scene.tile = h2d.Tile.fromTexture(api.outTexture);
+		win.scene.tile = win.sceneFS.tile = h2d.Tile.fromTexture(api.outTexture);
 		win.code.onChange = function() if( editMode == Memory ) win.updateLineNumbers() else onCodeChange();
 		win.code.onKeyDown = function(e) {
 			if( e.keyCode == "S".code && hxd.Key.isDown(hxd.Key.CTRL) )
 				save();
+		}
+	}
+
+	public function run( reset = true, fullwin = false ) {
+		if( reset ) {
+			compileCode();
+			if( win.hasError() ) return;
+		}
+		win.dom.addClass("fullscreen");
+		if( win.code.cursorIndex >= 0 )
+			prevIndex = win.code.cursorIndex;
+		win.code.blur();
+		if( fullwin ) {
+			engine.fullScreen = true;
+			win.dom.addClass("fullwindow");
 		}
 	}
 
@@ -439,6 +459,25 @@ class PicoGpu extends hxd.App {
 			if( upd != null && Reflect.isFunction(upd) ) handleRuntimeError(() -> upd());
 		}
 		engine.popTarget();
+		if( win.dom.hasClass("fullscreen") ) {
+			if( hxd.Key.isPressed(hxd.Key.ESCAPE) ) {
+				engine.fullScreen = false;
+				win.dom.removeClass("fullscreen");
+				win.dom.removeClass("fullwindow");
+				style.sync(0);
+				if( prevIndex < 0 ) prevIndex = 0;
+				win.code.cursorIndex = prevIndex;
+				win.code.focus();
+			}
+		} else {
+			if( hxd.Key.isPressed(hxd.Key.F11) )
+				run(false);
+			for( i in 0...4 )
+				if( hxd.Key.isPressed(hxd.Key.F1+i) )
+					win.modes[i].onClick();
+		}
+		if( hxd.Key.isPressed(hxd.Key.F5) )
+			run(true,hxd.Key.isDown(hxd.Key.CTRL));
 	}
 
 	static function main() {
