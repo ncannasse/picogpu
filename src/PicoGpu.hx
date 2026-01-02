@@ -522,6 +522,7 @@ class PicoGpu extends hxd.App {
 			var upd : Dynamic = interp.variables.get(callb);
 			if( upd != null && Reflect.isFunction(upd) ) handleRuntimeError(() -> upd());
 		}
+		@:privateAccess api.endFrame();
 		engine.popTarget();
 	}
 

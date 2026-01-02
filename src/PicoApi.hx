@@ -250,6 +250,34 @@ class PicoApi {
 		currentMaterial.colorMask = bits;
 	}
 
+	/**
+		Clip the render output to the given bounds.
+		Use clip() to reset to default size.
+	**/
+	public function clip( x : Int = 0, y : Int = 0, w : Int = -1, h : Int = -1 ) {
+		if( w < 0 ) w = WIDTH;
+		if( h < 0 ) h = HEIGHT;
+		gpu.engine.driver.setRenderZone(x,y,w,h);
+	}
+
+	/**
+		Configure the stencil operation and fail/pass for either front(default) or back face.
+		Use `Stencil.XXX` to access operations.
+	**/
+	public function stencil( op : h3d.mat.Data.StencilOp, fail : h3d.mat.Data.StencilOp, pass : h3d.mat.Data.StencilOp, front = true ) {
+		if( front )
+			currentMaterial.stencil.setFront(op,fail,pass);
+		else
+			currentMaterial.stencil.setBack(op,fail,pass);
+	}
+
+	/**
+		Configure the stencil function, reference and mask values
+	**/
+	public function stencilFunc( comp : h3d.mat.Data.Compare, reference = 0, readMask = 0xFF, writeMask = 0xFF ) {
+		currentMaterial.stencil.setFunc(comp, reference,readMask,writeMask);
+	}
+
 	// ---- DRAW -----
 
 	function flush() {
@@ -343,6 +371,11 @@ class PicoApi {
 		}
 		needFlush = true;
 		setGlobal("time", frames / FPS);
+		currentMaterial.stencil = new h3d.mat.Stencil();
+	}
+
+	function endFrame() {
+		clip();
 	}
 
 }
