@@ -180,10 +180,13 @@ class PicoGpu extends hxd.App {
 	var editMemMode : Bool;
 	var editStride = 4;
 	var prevIndex : Int;
-	var fileName = null;
+	var fileName : String;
+
+	static var PREFS = hxd.Save.load({ lastFile : null });
 
 	override function init() {
 		initSystem();
+		fileName = PREFS.lastFile;
 		var data = fileName == null ? null : try sys.io.File.getBytes(fileName) catch( e : Dynamic ) null;
 		if( data == null ) loadSample("Start.gpu") else loadData(data);
 		initUI();
@@ -197,6 +200,8 @@ class PicoGpu extends hxd.App {
 				handleRuntimeError(() -> {
 					loadData(bytes);
 					this.fileName = sel.fileName;
+					PREFS.lastFile = fileName;
+					hxd.Save.save(PREFS);
 				});
 			});
 		},{ title : "Select Data File", fileTypes : [{ name : "PICO GPU", extensions: ["png"] }]});
@@ -217,12 +222,14 @@ class PicoGpu extends hxd.App {
 		var data = new PicoData();
 		data.loadBytes(bdat);
 		api.loadData(data);
-		setMode(Code);
+		if( win != null ) setMode(Code);
 	}
 
 	public function save( newFile=false, textMode=false ) {
-		if( !compileCode() )
+		if( api.data.getTotalSize() > PicoApi.MAX_SIZE ) {
+			checkCode(); // force error
 			return;
+		}
 		var upd = null;
 		var screen : Dynamic = interp.variables.get("screenshot");
 		if( screen != null && Reflect.isFunction(screen) ) upd = "screenshot";
@@ -362,31 +369,38 @@ class PicoGpu extends hxd.App {
 	}
 
 	function onCodeChange() {
+		handleErrors(function() {
+			var code = win.code.text;
+			switch( editMode ) {
+			case Code:
+				api.data.code = code;
+				compileCode();
+			case Shaders:
+				api.data.shaders[editShader] = code;
+				var s = new PicoShader(editShader);
+				s.setCode(code);
+				api.updateShader(s);
+				compileCode(); // force reinit program
+			case Memory:
+				var m = api.data.memory[editMemory];
+				switch( m.data ) {
+				case Unknown, Texture(_):
+				default:
+					m.parseCode(code);
+					setMode(Memory); // reformat
+				}
+				compileCode(); // force reinit program
+			case Samples:
+			}
+		});
+		win.updateLineNumbers();
+	}
+
+	function handleErrors( f : Void -> Void ) {
 		try {
 			try {
 				win.clearError();
-				var code = win.code.text;
-				switch( editMode ) {
-				case Code:
-					api.data.code = code;
-					compileCode();
-				case Shaders:
-					api.data.shaders[editShader] = code;
-					var s = new PicoShader(editShader);
-					s.setCode(code);
-					api.updateShader(s);
-					compileCode(); // force reinit program
-				case Memory:
-					var m = api.data.memory[editMemory];
-					switch( m.data ) {
-					case Unknown, Texture(_):
-					default:
-						m.parseCode(code);
-						setMode(Memory); // reformat
-					}
-					compileCode(); // force reinit program
-				case Samples:
-				}
+				f();
 			} catch( e : hscript.Expr.Error ) {
 				win.setError(e.line, e.toString());
 			}
@@ -395,7 +409,11 @@ class PicoGpu extends hxd.App {
 			var line = sub.split("\n").length;
 			win.setError(line, e.msg);
 		}
-		win.updateLineNumbers();
+	}
+
+	function checkCode() {
+		handleErrors(compileCode);
+		return !win.hasError();
 	}
 
 	function initSystem() {
@@ -438,10 +456,8 @@ class PicoGpu extends hxd.App {
 	}
 
 	public function run( reset = true, fullwin = false ) {
-		if( reset ) {
-			compileCode();
-			if( win.hasError() ) return;
-		}
+		if( reset && !checkCode() )
+			return;
 		win.dom.addClass("fullscreen");
 		if( win.code.cursorIndex >= 0 )
 			prevIndex = win.code.cursorIndex;
@@ -477,7 +493,7 @@ class PicoGpu extends hxd.App {
 		if( api.data.getTotalSize() > PicoApi.MAX_SIZE ) {
 			handleRuntimeError(() -> throw "Total mem size is "+fmtSize(api.data.getTotalSize())+" >"+fmtSize(PicoApi.MAX_SIZE));
 			interp = null;
-			return false;
+			return;
 		}
 
 		for( name => cl in GLOBALS ) {
@@ -488,7 +504,6 @@ class PicoGpu extends hxd.App {
 		}
 		api.reset();
 		handleRuntimeError(() -> interp.execute(expr));
-		return !win.hasError();
 	}
 
 	public function log( msg : Dynamic ) {

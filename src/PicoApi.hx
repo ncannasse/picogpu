@@ -3,12 +3,15 @@ class PicoLinkedShader {
 	public var rt : hxsl.RuntimeShader;
 	public var list : hxsl.ShaderList;
 	public var format : hxd.BufferFormat;
+	public var instanceFormat : hxd.BufferFormat;
 	public var shaders : Array<PicoShader>;
 	public function new(rt,list,shaders) {
 		this.rt = rt;
 		this.list = list;
 		this.shaders = shaders;
 		this.format = rt.getInputFormat();
+		this.instanceFormat = rt.getInputFormat(true);
+		if( this.instanceFormat.stride == 0 ) this.instanceFormat = null;
 	}
 }
 
@@ -216,6 +219,20 @@ class PicoApi {
 		return new h3d.Quat(x,y,z,w);
 	}
 
+	/**
+		Return a random float number.
+	**/
+	public function rnd( max = 1.0 ) {
+		return Math.random() * max;
+	}
+
+	/**
+		Return a random int number.
+	**/
+	public function random( max : Int ) {
+		return Std.random(max);
+	}
+
 	// --- MATERIAL ----
 
 	/**
@@ -318,11 +335,34 @@ class PicoApi {
 			log("Null buffer");
 			return;
 		}
+		if( currentShader.instanceFormat != null ) {
+			log("Shader needs drawInstance()");
+			return;
+		}
 		flush();
 		if( index == null )
 			gpu.engine.renderTriBuffer(buffer.alloc(currentShader.format), startTri, drawTri);
 		else
 			gpu.engine.renderIndexed(buffer.alloc(currentShader.format), index.allocIndexes(), startTri, drawTri);
+	}
+
+	public function drawInstance( buffer : PicoBuffer, instanceBuffer : PicoBuffer, count : Int, ?index : PicoBuffer ) {
+		if( currentShader == null ) return;
+		if( buffer == null ) {
+			log("Null buffer");
+			return;
+		}
+		var buf = buffer.alloc(currentShader.format);
+		var ibuf = index?.allocIndexes() ?? gpu.engine.mem.getTriIndexes(buf.vertices);
+		var inst = new h3d.impl.InstanceBuffer();
+		inst.setCommand(count,index != null ? ibuf.count : buf.vertices);
+		flush();
+		var buffers = [buf];
+		if( instanceBuffer != null && currentShader.instanceFormat != null )
+			buffers.push(instanceBuffer.alloc(currentShader.instanceFormat));
+		var fmt = hxd.BufferFormat.MultiFormat.make([for( b in buffers ) b.format]);
+		gpu.engine.driver.selectMultiBuffers(fmt,buffers);
+		gpu.engine.renderInstanced(ibuf, inst);
 	}
 
 	function hasFocus() {
@@ -375,7 +415,7 @@ class PicoApi {
 	}
 
 	function endFrame() {
-		clip();
+		gpu.engine.driver.setRenderZone(0,0,gpu.engine.width,gpu.engine.height);
 	}
 
 }
@@ -412,6 +452,53 @@ class PicoBuffer {
 
 	public function setF32( index : Int, v : Single ) {
 		getBytes().setFloat(index << 2, v);
+		dispose();
+	}
+
+	public function setVec( index : Int, v : h3d.Vector4 ) {
+		var b = getBytes();
+		b.setFloat(index++ << 2, v.x);
+		b.setFloat(index++ << 2, v.y);
+		b.setFloat(index++ << 2, v.z);
+		b.setFloat(index++ << 2, v.w);
+		dispose();
+	}
+
+	public function setMat( index : Int, m : h3d.Matrix ) {
+		var b = getBytes();
+		b.setFloat(index++ << 2, m._11);
+		b.setFloat(index++ << 2, m._21);
+		b.setFloat(index++ << 2, m._31);
+		b.setFloat(index++ << 2, m._41);
+		b.setFloat(index++ << 2, m._12);
+		b.setFloat(index++ << 2, m._22);
+		b.setFloat(index++ << 2, m._32);
+		b.setFloat(index++ << 2, m._42);
+		b.setFloat(index++ << 2, m._13);
+		b.setFloat(index++ << 2, m._23);
+		b.setFloat(index++ << 2, m._33);
+		b.setFloat(index++ << 2, m._43);
+		b.setFloat(index++ << 2, m._14);
+		b.setFloat(index++ << 2, m._24);
+		b.setFloat(index++ << 2, m._34);
+		b.setFloat(index++ << 2, m._44);
+		dispose();
+	}
+
+	public function setMat3x4( index : Int, m : h3d.Matrix ) {
+		var b = getBytes();
+		b.setFloat(index++ << 2, m._11);
+		b.setFloat(index++ << 2, m._21);
+		b.setFloat(index++ << 2, m._31);
+		b.setFloat(index++ << 2, m._41);
+		b.setFloat(index++ << 2, m._12);
+		b.setFloat(index++ << 2, m._22);
+		b.setFloat(index++ << 2, m._32);
+		b.setFloat(index++ << 2, m._42);
+		b.setFloat(index++ << 2, m._13);
+		b.setFloat(index++ << 2, m._23);
+		b.setFloat(index++ << 2, m._33);
+		b.setFloat(index++ << 2, m._43);
 		dispose();
 	}
 

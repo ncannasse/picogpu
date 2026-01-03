@@ -14,14 +14,15 @@ class PicoMem {
 	}
 
 	public function decode( str : String ) {
-		var arr = str.substr(3, str.length - 4).split(",");
-		return switch( str.charCodeAt(0) ) {
+		switch( str.charCodeAt(0) ) {
 		case 'I'.code:
-			data = Ints([for( v in arr ) Std.parseInt(v)]);
+			data = Ints([]);
+			parseCode(str.substr(2));
 		case 'F'.code:
-			data = Floats([for( v in arr ) Std.parseFloat(v)]);
+			data = Floats([]);
+			parseCode(str.substr(2));
 		case 'T'.code:
-			var file = arr[0];
+			var file = str.substr(3, str.length - 4);
 			var res = hxd.Res.load(file).toImage();
 			data = Texture(file,res.getPixels());
 		case 'U'.code:
@@ -34,8 +35,8 @@ class PicoMem {
 	public function encode() {
 		return switch( data ) {
 		case Unknown: "U";
-		case Ints(a): "I:"+a;
-		case Floats(a): "F:"+a;
+		case Ints(a): "I:"+toCodeString(a.length).split("\n").join("");
+		case Floats(a): "F:"+toCodeString(a.length).split("\n").join("");
 		case Texture(file, pixels): "T:["+file+"]";
 		}
 	}
