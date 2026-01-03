@@ -41,6 +41,8 @@ class PicoApi {
 	var startTime : Float;
 	var frameOffset = -1;
 
+	var displayTex : PicoTexture;
+
 	public function new(gpu:PicoGpu) {
 		this.gpu = gpu;
 		currentOutput = new h3d.pass.OutputShader();
@@ -314,16 +316,29 @@ class PicoApi {
 
 	/**
 		Change the current render target. Call with null or 0 parameters to reset the default output.
+		You can optionaly set a buffer that will act as a depth and stencil buffer.
 	**/
-	public function setTarget( ?t : PicoTexture ) {
+	public function setTarget( ?t : PicoTexture, ?depth : PicoBuffer ) {
+		if( t != null && depth != null )
+			t.tex.depthBuffer = depth.getTexture(Depth24Stencil8).tex;
 		gpu.engine.driver.setRenderTarget(t.tex ?? outTexture);
+		if( t != null && depth != null )
+			t.tex.depthBuffer = null;
 	}
 
 	/**
-		Clear the current target color.
+		Clear the current target color, and optionaly the current depth and stencil.
 	**/
 	public function clear( color ) {
 		gpu.engine.driver.clear(color);
+	}
+
+
+	/**
+		Clear the current target depth, stencil, or both
+	**/
+	public function clearDS( ?depth : Float, ?stencil : Int ) {
+		gpu.engine.driver.clear(null, depth, stencil);
 	}
 
 	/**
@@ -346,6 +361,9 @@ class PicoApi {
 			gpu.engine.renderIndexed(buffer.alloc(currentShader.format), index.allocIndexes(), startTri, drawTri);
 	}
 
+	/**
+		Draw a given number of instances using the data buffer and a per instance buffer.
+	**/
 	public function drawInstance( buffer : PicoBuffer, instanceBuffer : PicoBuffer, count : Int, ?index : PicoBuffer ) {
 		if( currentShader == null ) return;
 		if( buffer == null ) {
@@ -363,6 +381,14 @@ class PicoApi {
 		var fmt = hxd.BufferFormat.MultiFormat.make([for( b in buffers ) b.format]);
 		gpu.engine.driver.selectMultiBuffers(fmt,buffers);
 		gpu.engine.renderInstanced(ibuf, inst);
+	}
+
+	/**
+		Tell which texture will be display at the end of rendering.
+		Used for debug purposes;
+	**/
+	public function showTexture( tex : PicoTexture ) {
+		displayTex = tex;
 	}
 
 	function hasFocus() {
@@ -400,6 +426,7 @@ class PicoApi {
 	}
 
 	function beginFrame() {
+		displayTex = null;
 		if( frameOffset < 0 ) {
 			startTime = haxe.Timer.stamp();
 			frameOffset = hxd.Timer.frameCount;
@@ -536,7 +563,7 @@ class PicoBuffer {
 		Convert the memory buffer into a texture to be used as shader variable
 		or another operation. If the buffer is modified, the texture will be disposed.
 	*/
-	public function getTexture() : PicoTexture {
+	public function getTexture( ?fmt ) : PicoTexture {
 		if( texture != null )
 			return texture;
 		switch( mem.data ) {
@@ -549,8 +576,9 @@ class PicoBuffer {
 			var size = getBytes().length>>2;
 			var width = Std.int(Math.sqrt(size));
 			var height = Std.int(size/width);
-			texture = new h3d.mat.Texture(width, height, [Target]);
-			texture.uploadPixels(new hxd.Pixels(width,height,bytes,BGRA));
+			texture = new h3d.mat.Texture(width, height, [Target], fmt);
+			if( fmt != Depth24Stencil8 )
+				texture.uploadPixels(new hxd.Pixels(width,height,bytes,fmt ?? BGRA));
 		}
 		texture.wrap = Repeat;
 		texture.filter = Nearest;

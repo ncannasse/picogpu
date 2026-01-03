@@ -447,7 +447,6 @@ class PicoGpu extends hxd.App {
 		style.allowInspect = true;
 		style.watchInterpComponents();
 		#end
-		win.scene.tile = win.sceneFS.tile = h2d.Tile.fromTexture(api.outTexture);
 		win.code.onChange = function() if( editMode == Memory ) win.updateLineNumbers() else onCodeChange();
 		win.code.onKeyDown = function(e) {
 			if( e.keyCode == "S".code && hxd.Key.isDown(hxd.Key.CTRL) )
@@ -544,6 +543,7 @@ class PicoGpu extends hxd.App {
 		}
 		@:privateAccess api.endFrame();
 		engine.popTarget();
+		win.scene.tile = win.sceneFS.tile = h2d.Tile.fromTexture(@:privateAccess api.displayTex?.tex ?? api.outTexture);
 	}
 
 	override function update(dt:Float) {
