@@ -453,6 +453,11 @@ class PicoGpu extends hxd.App {
 			if( e.keyCode == "S".code && hxd.Key.isDown(hxd.Key.CTRL) )
 				save();
 		}
+		var breaks = {
+			var str = " \t;.(){}\"',";
+			[for( i in 0...str.length ) str.charCodeAt(i) => true];
+		};
+		win.code.isWordLimit = function(pos) return breaks.exists(StringTools.fastCodeAt(win.code.text,pos));
 	}
 
 	public function run( reset = true, fullwin = false ) {
