@@ -328,7 +328,20 @@ class PicoGpu extends hxd.App {
 			onCodeChange();
 		else {
 			win.clearError();
-			win.updateLineNumbers();
+			syncCode();
+		}
+	}
+
+	function syncCode() {
+		win.updateLineNumbers();
+		switch( editMode ) {
+		case Code:
+			var segs = new hscript.Colorizer().getColorSegments(win.code.text,0xEEEEEE);
+			for( i in 0...segs.length>>1 )
+				segs[i*2+1] |= 0xFF000000;
+			win.code.setColorSegments(segs);
+		default:
+			win.code.setColorSegments(null);
 		}
 	}
 
@@ -393,7 +406,7 @@ class PicoGpu extends hxd.App {
 			case Samples:
 			}
 		});
-		win.updateLineNumbers();
+		syncCode();
 	}
 
 	function handleErrors( f : Void -> Void ) {
@@ -447,7 +460,7 @@ class PicoGpu extends hxd.App {
 		style.allowInspect = true;
 		style.watchInterpComponents();
 		#end
-		win.code.onChange = function() if( editMode == Memory ) win.updateLineNumbers() else onCodeChange();
+		win.code.onChange = function() if( editMode == Memory ) syncCode() else onCodeChange();
 		win.code.onKeyDown = function(e) {
 			if( e.keyCode == "S".code && hxd.Key.isDown(hxd.Key.CTRL) )
 				save();
