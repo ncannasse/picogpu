@@ -137,7 +137,8 @@ class PicoWindow extends DynamicComponent {
 		errorLine = line;
 		error.parent.visible = true;
 		errorLineDisp.visible = true;
-		errorLineDisp.y = code.font.lineHeight * (errorLine - 1);
+		var dispLine = code.getCursorLine(errorLine - 1);
+		errorLineDisp.y = code.font.lineHeight * dispLine;
 	}
 
 	public function clearError() {
