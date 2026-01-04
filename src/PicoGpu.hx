@@ -151,7 +151,13 @@ class PicoWindow extends DynamicComponent {
 	}
 
 	public function updateLineNumbers() {
-		lineNumbers.text = [for( i => _ in code.text.split("\n") ) ""+(i+1)].join("\n");
+		var lines = [];
+		for( i => line in code.text.split("\n") ) {
+			lines.push(""+(i+1));
+			var subs = code.splitText(line).split("\n");
+			for( i in 1...subs.length ) lines.push("");
+		}
+		lineNumbers.text = lines.join("\n");
 	}
 
 }
@@ -336,7 +342,7 @@ class PicoGpu extends hxd.App {
 		win.updateLineNumbers();
 		switch( editMode ) {
 		case Code:
-			var segs = new hscript.Colorizer().getColorSegments(win.code.text,0xEEEEEE);
+			var segs = new hscript.Colorizer().getColorSegments(win.code.splitText(win.code.text),0xEEEEEE);
 			for( i in 0...segs.length>>1 )
 				segs[i*2+1] |= 0xFF000000;
 			win.code.setColorSegments(segs);

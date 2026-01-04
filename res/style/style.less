@@ -92,6 +92,17 @@ pico-window {
 					color : #888;
 					margin-right : 5;
 				}
+				padding-right : 15;
+				input {
+					max-width : @width*0.5 - 30;
+				}
+				.scrollbar {
+					offset-x : -10;
+					margin-right : ignore-parent;
+					.cursor {
+						width : 5;
+					}
+				}
 			}
 			.errorLineDisp {
 				position : absolute;
