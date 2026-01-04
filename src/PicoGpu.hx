@@ -169,7 +169,6 @@ class PicoGpu extends hxd.App {
 
 	public static var VERSION = "0.1";
 	static var GLOBALS = [
-		"Key" => "hxd.Key",
 		"Blend" => "h3d.mat.Blend",
 		"Compare" => "h3d.mat.Compare",
 		"Stencil" => "h3d.mat.StencilOp",
@@ -189,10 +188,13 @@ class PicoGpu extends hxd.App {
 	var editStride = 4;
 	var prevIndex : Int;
 	var fileName : String;
+	public var pad : hxd.Pad;
 
 	static var PREFS = hxd.Save.load({ lastFile : null, storages : new Map<String,haxe.io.Bytes>() });
 
 	override function init() {
+		pad = hxd.Pad.createDummy();
+		hxd.Pad.wait(function(p) pad = p);
 		initSystem();
 		fileName = PREFS.lastFile;
 		var data = #if js null #else fileName == null ? null : try sys.io.File.getBytes(fileName) catch( e : Dynamic ) null #end;
@@ -620,6 +622,10 @@ class PicoGpu extends hxd.App {
 		@:privateAccess api.endFrame();
 		engine.popTarget();
 		win.scene.tile = win.sceneFS.tile = h2d.Tile.fromTexture(@:privateAccess api.displayTex?.tex ?? api.outTexture);
+	}
+
+	public function getScene() {
+		return win.dom.hasClass("fullscreen") ? win.sceneFS : win.scene;
 	}
 
 	override function update(dt:Float) {

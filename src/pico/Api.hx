@@ -1,5 +1,7 @@
 package pico;
 
+import hxd.Key in K;
+
 private class LinkedShader {
 	public var rt : hxsl.RuntimeShader;
 	public var list : hxsl.ShaderList;
@@ -420,24 +422,95 @@ class Api {
 	// --- CONTROLS ----
 
 	/**
-		Checks if the keyboard key is currently down. Key codes are accessible with the `Key` global variable.
+		Returns [-1,1] based on the keyboard left/right arrows / WASD and/or gamepad.
 	**/
-	public function keyDown( code : Int ) {
-		return hasFocus() && hxd.Key.isDown(code);
+	public function dirX() : Float {
+		var pad = gpu.pad;
+		var dx = pad.xAxis;
+		if( hasFocus() ) {
+			if( K.isDown(K.LEFT) || K.isDown("A".code) || K.isDown("Q".code) )
+				dx--;
+			if( K.isDown(K.RIGHT) || K.isDown("D".code) )
+				dx++;
+		}
+		if( pad.buttons[pad.config.dpadLeft] )
+			dx--;
+		if( pad.buttons[pad.config.dpadRight] )
+			dx++;
+		if( dx > 1 ) dx = 1;
+		if( dx < -1 ) dx = -1;
+		return dx;
 	}
 
 	/**
-		Checks if the keyboard key was pressed this frame. Key codes are accessible with the `Key` global variable.
+		Returns [-1,1] based on the keyboard up/down arrows / WASD and/or gamepad.
 	**/
-	public function keyPressed( code : Int ) {
-		return hasFocus() && hxd.Key.isPressed(code);
+	public function dirY() : Float {
+		var pad = gpu.pad;
+		var dy = pad.yAxis;
+		if( hasFocus() ) {
+			if( K.isDown(K.UP) || K.isDown("Z".code) || K.isDown("W".code) )
+				dy--;
+			if( K.isDown(K.DOWN) || K.isDown("S".code) )
+				dy++;
+		}
+		if( pad.buttons[pad.config.dpadUp] )
+			dy--;
+		if( pad.buttons[pad.config.dpadDown] )
+			dy++;
+		if( dy > 1 ) dy = 1;
+		if( dy < -1 ) dy = -1;
+		return dy;
 	}
 
 	/**
-		Checks if the keyboard key was released this frame. Key codes are accessible with the `Key` global variable.
+		Returns true if the main button is pushed (E/space on keyboard, A/X on gamepad, or mouse click)
 	**/
-	public function keyReleased( code : Int ) {
-		return hasFocus() && hxd.Key.isReleased(code);
+	public function button() {
+		if( hasFocus() ) {
+			if( K.isDown(K.SPACE) || K.isDown("E".code) || K.isDown(K.MOUSE_LEFT) )
+				return true;
+		}
+		var pad = gpu.pad;
+		if( pad.buttons[pad.config.A] || pad.buttons[pad.config.X] )
+			return true;
+		return false;
+	}
+
+	/**
+		Returns true if the secondary button is pushed (R/enter on keyboard, B/Y on gamepad, or mouse right click)
+	**/
+	public function button2() {
+		if( hasFocus() ) {
+			if( K.isDown(K.ENTER) || K.isDown("R".code) || K.isDown(K.MOUSE_RIGHT) )
+				return true;
+		}
+		var pad = gpu.pad;
+		if( pad.buttons[pad.config.B] || pad.buttons[pad.config.Y] )
+			return true;
+		return false;
+	}
+
+	function mousePos() {
+		var sc = gpu.getScene();
+		var p = sc.globalToLocal(new h2d.col.Point(gpu.s2d.mouseX,gpu.s2d.mouseY));
+		if( sc.width != null )
+			p.scale(WIDTH / sc.width);
+		return p;
+	}
+
+	/**
+		Returns the mouseX position on screen.
+	**/
+	public function mouseX() : Int {
+		return Math.round(hxd.Math.clamp(mousePos().x,0,WIDTH));
+	}
+
+	/**
+		Returns the mouseY position on screen.
+	**/
+	public function mouseY() : Int {
+		return Math.round(hxd.Math.clamp(mousePos().y,0,HEIGHT));
 	}
 
 	/**
@@ -612,8 +685,11 @@ class Buffer extends ShaderParam {
 		case Unknown:
 			return null;
 		case Texture(_,pix):
-			texture = new h3d.mat.Texture(pix.width, pix.height, [Target], pix.format);
-			texture.uploadPixels(new hxd.Pixels(pix.width,pix.height,getBytes(),pix.format));
+			var sup = h3d.Engine.getCurrent().driver.isSupportedFormat(pix.format);
+			var pixels = new hxd.Pixels(pix.width,pix.height,getBytes(),pix.format);
+			if( !sup ) pixels.convert(RGBA);
+			texture = new h3d.mat.Texture(pix.width, pix.height, [Target], pixels.format);
+			texture.uploadPixels(pixels);
 		default:
 			var size = getBytes().length>>2;
 			var width = Std.int(Math.sqrt(size));
