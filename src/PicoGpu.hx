@@ -238,7 +238,7 @@ class PicoGpu extends hxd.App {
 					savePrefs();
 				});
 			});
-		},{ title : "Select Data File", fileTypes : [{ name : "PICO GPU", extensions: ["png"] }]});
+		},{ title : "Select Data File", fileTypes : [{ name : "PICO GPU", extensions: ["gpu.png"] }]});
 	}
 
 	function loadData( bytes : haxe.io.Bytes ) {
@@ -286,7 +286,7 @@ class PicoGpu extends hxd.App {
 		var pngOut = new haxe.io.BytesOutput();
 		new format.png.Writer(pngOut).write(png);
 		var pngData = pngOut.getBytes();
-		var ext = "png";
+		var ext = "gpu.png";
 		if( textMode ) {
 			pngData = haxe.io.Bytes.ofString(api.data.getText());
 			ext = "gpu";
@@ -642,7 +642,10 @@ class PicoGpu extends hxd.App {
 	}
 
 	static function main() {
-		hxd.res.Resource.LIVE_UPDATE = true;
+		if( hl.Api.hasDebugger() )
+			hxd.res.Resource.LIVE_UPDATE = true;
+		else
+			hl.UI.closeConsole();
 		hxd.Res.initLocal();
 		new PicoGpu();
 	}
