@@ -1,0 +1,10 @@
+-lib heaps
+-lib domkit
+-lib hscript
+-js picogpu.js
+-cp src
+-D hscriptPos
+-dce no
+-xml api.xml
+-main PicoGpu
+--macro hscript.LiveClass.enable("api.xml",["src"])

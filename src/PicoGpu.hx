@@ -195,7 +195,7 @@ class PicoGpu extends hxd.App {
 	override function init() {
 		initSystem();
 		fileName = PREFS.lastFile;
-		var data = fileName == null ? null : try sys.io.File.getBytes(fileName) catch( e : Dynamic ) null;
+		var data = #if js null #else fileName == null ? null : try sys.io.File.getBytes(fileName) catch( e : Dynamic ) null #end;
 		if( data == null ) loadSample("Start.gpu") else loadData(data);
 		initUI();
 		start();
@@ -298,8 +298,11 @@ class PicoGpu extends hxd.App {
 				fileTypes : [{ name : "PICO GPU", extensions: [ext] }],
 				saveFileName : (name) -> fileName = name,
 			});
-		} else
+		}
+		#if sys
+		else
 			sys.io.File.saveBytes(fileName, pngData);
+		#end
 	}
 
 	public function loadSample( name : String ) {
@@ -490,9 +493,11 @@ class PicoGpu extends hxd.App {
 		win = new PicoWindow(this, s2d);
 		style.addObject(win);
 		haxe.Timer.delay(win.code.focus,0);
-		#if !release
-		style.allowInspect = true;
-		style.watchInterpComponents();
+		#if hl
+		if( hl.Api.hasDebugger() ) {
+			style.allowInspect = true;
+			style.watchInterpComponents();
+		}
 		#end
 		win.code.onCodeChange = function() {
 			if( editMode == Memory )
@@ -559,7 +564,7 @@ class PicoGpu extends hxd.App {
 		for( f in Type.getInstanceFields(Type.getClass(api)) ) {
 			var v : Dynamic = Reflect.field(api,f);
 			if( v != null && Reflect.isFunction(v) )
-				interp.variables.set(f, Reflect.field(api,f));
+				interp.variables.set(f, #if js js.Syntax.code("$bind({0},{1})",api,v) #else v #end);
 		}
 		interp.variables.set("trace", Reflect.makeVarArgs(function(args) {
 			log(Std.string(args[0]));
@@ -642,11 +647,21 @@ class PicoGpu extends hxd.App {
 	}
 
 	static function main() {
+		#if js
+		var apiXML = hxd.res.Embed.getFileContent("api.xml");
+		hxd.Res.initEmbed();
+		hscript.LiveClass.getContent = function(file) {
+			if( file == "api.xml" )
+				return apiXML;
+			throw "Missing file "+file;
+		};
+		#else
 		if( hl.Api.hasDebugger() )
 			hxd.res.Resource.LIVE_UPDATE = true;
 		else
 			hl.UI.closeConsole();
 		hxd.Res.initLocal();
+		#end
 		new PicoGpu();
 	}
 

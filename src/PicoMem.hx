@@ -1,7 +1,7 @@
 enum PicoMemData {
 	Unknown;
 	Ints( a : Array<Int> );
-	Floats( a : Array<Single> );
+	Floats( a : Array<#if js Float #else Single #end> );
 	Texture( file : String, pixels : hxd.Pixels );
 }
 
@@ -66,8 +66,16 @@ class PicoMem {
 	public function getBytes() {
 		return switch( data ) {
 		case Unknown: null;
-		case Ints(arr): @:privateAccess new haxe.io.Bytes(hl.Bytes.getArray(arr), arr.length << 2);
-		case Floats(arr): @:privateAccess new haxe.io.Bytes(hl.Bytes.getArray(arr), arr.length << 2);
+		case Ints(arr):
+			var b = haxe.io.Bytes.alloc(arr.length << 2);
+			for( i => v in arr )
+				b.setInt32(i << 2, v);
+			b;
+		case Floats(arr):
+			var b = haxe.io.Bytes.alloc(arr.length << 2);
+			for( i => v in arr )
+				b.setFloat(i << 2, v);
+			b;
 		case Texture(_,pix): pix.bytes;
 		}
 	}

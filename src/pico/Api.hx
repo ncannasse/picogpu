@@ -512,7 +512,7 @@ class Buffer extends ShaderParam {
 		dispose();
 	}
 
-	public function setF32( index : Int, v : Single ) {
+	public function setF32( index : Int, v : #if js Float #else Single #end ) {
 		getBytes().setFloat(index << 2, v);
 		dispose();
 	}
