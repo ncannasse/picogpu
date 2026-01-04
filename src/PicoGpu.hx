@@ -75,9 +75,9 @@ class PicoWindow extends DynamicComponent {
 				</flow>
 				<flow class="code-content">
 					<text class="lineNumbers" id/>
-					<input id="code" multiline={true}>
+					<code-editor(@:privateAccess gpu.style) id="code" multiline={true}>
 						<flow class="errorLineDisp" id/>
-					</input>
+					</code-editor>
 					<flow class="memPanel">
 						<flow class="modeSelect">
 							for( i => m in ["Undef","I32","F32","Texture"] )
@@ -308,14 +308,14 @@ class PicoGpu extends hxd.App {
 		win.code.clearUndo();
 		switch( mode ) {
 		case Code:
-			win.code.text = api.data.code;
+			win.code.setCode(api.data.code);
 		case Shaders:
 			if( index != null ) editShader = index else index = editShader;
-			win.code.text = api.data.shaders[index] ?? "";
+			win.code.setCode(api.data.shaders[index] ?? "");
 		case Memory:
 			if( index != null ) editMemory = index else index = editMemory;
 			var mem = api.data.memory[index];
-			win.code.text = mem?.toCodeString(editStride) ?? "Uninitialize Memory. Select mode below.";
+			win.code.setCode(mem?.toCodeString(editStride) ?? "Uninitialize Memory. Select mode below.");
 			win.code.canEdit = win.memSave.visible = mem.canEditCode();
 			win.memTot.text = [
 				"Size: "+fmtSize(mem.getMemSize()),
@@ -462,16 +462,22 @@ class PicoGpu extends hxd.App {
 		style.loadComponents("style");
 		win = new PicoWindow(this, s2d);
 		style.addObject(win);
-		win.code.focus();
+		haxe.Timer.delay(win.code.focus,0);
 		#if !release
 		style.allowInspect = true;
 		style.watchInterpComponents();
 		#end
-		win.code.onChange = function() if( editMode == Memory ) syncCode() else onCodeChange();
+		win.code.onCodeChange = function() {
+			if( editMode == Memory )
+				syncCode()
+			else
+				onCodeChange();
+		};
 		win.code.onKeyDown = function(e) {
 			if( e.keyCode == "S".code && hxd.Key.isDown(hxd.Key.CTRL) )
 				save();
 		}
+		win.code.getCompletion = getCompletion;
 		var breaks = {
 			var str = " \t;.(){}\"',";
 			[for( i in 0...str.length ) str.charCodeAt(i) => true];
@@ -496,6 +502,24 @@ class PicoGpu extends hxd.App {
 		log("Starting...");
 		log("PicoGPU ready!");
 		setMode(Code);
+	}
+
+	function getCompletion( position : Int ) : Array<CodeEditor.CodeCompletion> {
+		if( editMode != Code )
+			return null;
+		var parser = new hscript.Parser();
+		parser.allowTypes = true;
+		parser.resumeErrors = true;
+		var code = win.code.text.substr(0, position);
+		var expr = parser.parseString(code, "");
+		var compl = try {
+			var et = checker.check(expr,null,true);
+			return null;
+		} catch( c : hscript.Checker.Completion ) {
+			c;
+		};
+		var fields = checker.getCompletion(compl);
+		return [for( f in fields ) { name : f.name, info : hscript.Checker.typeStr(f.t) }];
 	}
 
 	function compileCode() {
