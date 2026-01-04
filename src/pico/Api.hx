@@ -106,6 +106,18 @@ class Api {
 	}
 
 	/**
+		Load the peristent data storage with the given global name.
+		This will return a 256 bytes buffer than cannot be used for GPU
+		data but only be used to store save data for your app.
+	**/
+	public function loadStorage( name : String ) : Buffer {
+		var bytes = PicoGpu.loadPrefs(name, 256);
+		var b = new Buffer(null);
+		b.bytes = bytes;
+		return b;
+	}
+
+	/**
 		Same as loadBuffer(index).getTexture()
 	**/
 	public function loadTexture( index : Int ) {
@@ -401,7 +413,8 @@ class Api {
 	}
 
 	function hasFocus() {
-		return gpu.sevents.getFocus() != null;
+		// if we are editing the code, we don't have focus
+		return gpu.sevents.getFocus() == null;
 	}
 
 	// --- CONTROLS ----
@@ -410,27 +423,31 @@ class Api {
 		Checks if the keyboard key is currently down. Key codes are accessible with the `Key` global variable.
 	**/
 	public function keyDown( code : Int ) {
-		return !hasFocus() && hxd.Key.isDown(code);
+		return hasFocus() && hxd.Key.isDown(code);
 	}
 
 	/**
 		Checks if the keyboard key was pressed this frame. Key codes are accessible with the `Key` global variable.
 	**/
 	public function keyPressed( code : Int ) {
-		return !hasFocus() && hxd.Key.isPressed(code);
+		return hasFocus() && hxd.Key.isPressed(code);
 	}
 
 	/**
 		Checks if the keyboard key was released this frame. Key codes are accessible with the `Key` global variable.
 	**/
 	public function keyReleased( code : Int ) {
-		return !hasFocus() && hxd.Key.isReleased(code);
+		return hasFocus() && hxd.Key.isReleased(code);
 	}
 
 	/**
-		Log a message in the console.
+		Return the current time since 1/1/1970 in seconds
 	**/
-	public function log( v : Dynamic ) {
+	public function time() {
+		return Std.int(Date.now().getTime() / 1000.);
+	}
+
+	inline function log( v : String ) {
 		gpu.logOnce(v);
 	}
 
@@ -548,6 +565,7 @@ class Buffer extends ShaderParam {
 	}
 
 	function alloc(format:hxd.BufferFormat) {
+		if( mem == null ) throw "Storage buffer cannot be used as GPU buffer";
 		if( buffer == null || buffer.format != format ) {
 			buffer?.dispose();
 			var bytes = getBytes();
@@ -558,6 +576,10 @@ class Buffer extends ShaderParam {
 	}
 
 	function dispose() {
+		if( mem == null ) {
+			PicoGpu.savePrefs();
+			return;
+		}
 		buffer?.dispose();
 		texture?.dispose();
 		buffer = null;
@@ -585,6 +607,7 @@ class Buffer extends ShaderParam {
 	public function getTexture( ?fmt ) : Texture {
 		if( texture != null )
 			return ptex;
+		if( mem == null ) throw "Storage buffer cannot be used as Texture";
 		switch( mem.data ) {
 		case Unknown:
 			return null;

@@ -190,7 +190,7 @@ class PicoGpu extends hxd.App {
 	var prevIndex : Int;
 	var fileName : String;
 
-	static var PREFS = hxd.Save.load({ lastFile : null });
+	static var PREFS = hxd.Save.load({ lastFile : null, storages : new Map<String,haxe.io.Bytes>() });
 
 	override function init() {
 		initSystem();
@@ -201,6 +201,32 @@ class PicoGpu extends hxd.App {
 		start();
 	}
 
+	public static function savePrefs() {
+		var prefs = null;
+		if( false ) PREFS = prefs;
+		prefs = { lastFile : PREFS.lastFile, storages : new Map() };
+		for( k => b in PREFS.storages ) {
+			var hasData = false;
+			for( i in 0...b.length )
+				if( b.get(i) != 0 ) {
+					hasData = true;
+					break;
+				}
+			if( hasData )
+				prefs.storages.set(k,b);
+		}
+		hxd.Save.save(prefs);
+	}
+
+	public static function loadPrefs( name : String, size : Int ) {
+		var bytes = PREFS.storages.get(name);
+		if( bytes == null ) {
+			bytes = haxe.io.Bytes.alloc(size);
+			PicoGpu.PREFS.storages.set(name, bytes);
+		}
+		return bytes;
+	}
+
 	public function load() {
 		hxd.File.browse(function(sel) {
 			sel.load(function(bytes) {
@@ -209,7 +235,7 @@ class PicoGpu extends hxd.App {
 					loadData(bytes);
 					this.fileName = sel.fileName;
 					PREFS.lastFile = fileName;
-					hxd.Save.save(PREFS);
+					savePrefs();
 				});
 			});
 		},{ title : "Select Data File", fileTypes : [{ name : "PICO GPU", extensions: ["png"] }]});
