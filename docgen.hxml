@@ -1,0 +1,3 @@
+picogpu.hxml
+--next
+--cmd haxelib run dox -o doc -i api.xml --toplevel-package pico

@@ -1,5 +1,6 @@
+package pico;
 
-class PicoLinkedShader {
+private class LinkedShader {
 	public var rt : hxsl.RuntimeShader;
 	public var list : hxsl.ShaderList;
 	public var format : hxd.BufferFormat;
@@ -15,18 +16,18 @@ class PicoLinkedShader {
 	}
 }
 
-@:access(PicoBuffer)
-@:access(PicoTexture)
-class PicoApi {
+@:access(pico.Buffer)
+@:access(pico.Texture)
+class Api {
 
-	public static final FPS = 60;
-	public static final WIDTH = 640;
-	public static final HEIGHT = 480;
-	public static final MAX_SIZE = WIDTH * HEIGHT;
+	static final FPS = 60;
+	static final WIDTH = 640;
+	static final HEIGHT = 480;
+	static final MAX_SIZE = WIDTH * HEIGHT;
 
 	var gpu : PicoGpu;
-	var shaderCombi : Map<String,PicoLinkedShader>;
-	var currentShader : PicoLinkedShader;
+	var shaderCombi : Map<String,LinkedShader>;
+	var currentShader : LinkedShader;
 	var currentMaterial : h3d.mat.Pass;
 	var currentOutput : h3d.pass.OutputShader;
 	var renderCtx : h3d.impl.RenderContext;
@@ -35,15 +36,15 @@ class PicoApi {
 	var needFlush = true;
 
 	var data : PicoData;
-	var memory : Array<PicoBuffer>;
+	var memory : Array<Buffer>;
 	var shaders : Array<PicoShader>;
 
 	var startTime : Float;
 	var frameOffset = -1;
 
-	var displayTex : PicoTexture;
+	var displayTex : Texture;
 
-	public function new(gpu:PicoGpu) {
+	function new(gpu:PicoGpu) {
 		this.gpu = gpu;
 		currentOutput = new h3d.pass.OutputShader();
 		currentOutput.setOutput([Value("outputColor")],"outputPosition");
@@ -75,7 +76,7 @@ class PicoApi {
 
 	function loadData( data : PicoData ) {
 		this.data = data;
-		memory = [for( i in data.memory ) new PicoBuffer(i)];
+		memory = [for( i in data.memory ) new Buffer(i)];
 		shaders = [for( i => code in data.shaders ) { var s = new PicoShader(i); try s.setCode(code) catch( e : Dynamic ) {}; s; }];
 	}
 
@@ -100,7 +101,7 @@ class PicoApi {
 		You can have up to 16 different memory buffers.
 		The total memory (including code data) cannot exceed 64KB
 	**/
-	public function loadBuffer( index : Int ) : PicoBuffer {
+	public function loadBuffer( index : Int ) : Buffer {
 		return memory[index];
 	}
 
@@ -146,7 +147,7 @@ class PicoApi {
 			for( s in shaders )
 				sl = new hxsl.ShaderList(s.shader,sl);
 			var rt = currentOutput.compileShaders(renderCtx.globals, sl);
-			sh = new PicoLinkedShader(rt,sl,shaders);
+			sh = new LinkedShader(rt,sl,shaders);
 			shaderCombi.set(key, sh);
 		}
 		if( currentShader != sh ) {
@@ -156,10 +157,17 @@ class PicoApi {
 		return true;
 	}
 
+	function convert( v : Dynamic ) {
+		var p = Std.downcast(v, ShaderParam);
+		if( p != null ) v = @:privateAccess p.getValue();
+		return v;
+	}
+
 	/**
 		Set the global value. It will be accessible in shader variables with the @global qualifier.
 	**/
 	public function setGlobal( name : String, value : Dynamic ) {
+		value = convert(value);
 		renderCtx.globals.set(name, value);
 	}
 
@@ -168,6 +176,7 @@ class PicoApi {
 	**/
 	public function setParam( name : String, value : Dynamic ) {
 		if( currentShader != null ) {
+			value = convert(value);
 			for( s in currentShader.shaders )
 				s.shader.setVariable(name, value);
 		}
@@ -318,10 +327,10 @@ class PicoApi {
 		Change the current render target. Call with null or 0 parameters to reset the default output.
 		You can optionaly set a buffer that will act as a depth and stencil buffer.
 	**/
-	public function setTarget( ?t : PicoTexture, ?depth : PicoBuffer ) {
+	public function setTarget( ?t : Texture, ?depth : Buffer ) {
 		if( t != null && depth != null )
 			t.tex.depthBuffer = depth.getTexture(Depth24Stencil8).tex;
-		gpu.engine.driver.setRenderTarget(t.tex ?? outTexture);
+		gpu.engine.driver.setRenderTarget(t?.tex ?? outTexture);
 		if( t != null && depth != null )
 			t.tex.depthBuffer = null;
 	}
@@ -344,7 +353,7 @@ class PicoApi {
 	/**
 		Draw using the vertex buffer using the current shader. Use either triangles or specified index buffer.
 	**/
-	public function draw( buffer : PicoBuffer, ?index : PicoBuffer, ?startTri = 0, ?drawTri = -1 ) {
+	public function draw( buffer : Buffer, ?index : Buffer, ?startTri = 0, ?drawTri = -1 ) {
 		if( currentShader == null ) return;
 		if( buffer == null ) {
 			log("Null buffer");
@@ -364,7 +373,7 @@ class PicoApi {
 	/**
 		Draw a given number of instances using the data buffer and a per instance buffer.
 	**/
-	public function drawInstance( buffer : PicoBuffer, instanceBuffer : PicoBuffer, count : Int, ?index : PicoBuffer ) {
+	public function drawInstance( buffer : Buffer, instanceBuffer : Buffer, count : Int, ?index : Buffer ) {
 		if( currentShader == null ) return;
 		if( buffer == null ) {
 			log("Null buffer");
@@ -387,7 +396,7 @@ class PicoApi {
 		Tell which texture will be display at the end of rendering.
 		Used for debug purposes;
 	**/
-	public function showTexture( tex : PicoTexture ) {
+	public function showTexture( tex : Texture ) {
 		displayTex = tex;
 	}
 
@@ -447,10 +456,15 @@ class PicoApi {
 
 }
 
-class PicoBuffer {
+abstract class ShaderParam {
+	abstract function getValue() : Dynamic;
+}
+
+class Buffer extends ShaderParam {
 	var mem : PicoMem;
 	var buffer : h3d.Buffer;
 	var texture : h3d.mat.Texture;
+	var ptex : Texture;
 	var bytes : haxe.io.Bytes;
 
 	/**
@@ -458,8 +472,12 @@ class PicoBuffer {
 	**/
 	public var length(get,never) : Int;
 
-	public function new(mem) {
+	function new(mem) {
 		this.mem = mem;
+	}
+
+	function getValue():Dynamic {
+		return alloc(hxd.BufferFormat.VEC4_DATA);
 	}
 
 	function get_length() return getBytes().length;
@@ -544,6 +562,7 @@ class PicoBuffer {
 		texture?.dispose();
 		buffer = null;
 		texture = null;
+		ptex = null;
 	}
 
 	function allocIndexes() {
@@ -563,9 +582,9 @@ class PicoBuffer {
 		Convert the memory buffer into a texture to be used as shader variable
 		or another operation. If the buffer is modified, the texture will be disposed.
 	*/
-	public function getTexture( ?fmt ) : PicoTexture {
+	public function getTexture( ?fmt ) : Texture {
 		if( texture != null )
-			return texture;
+			return ptex;
 		switch( mem.data ) {
 		case Unknown:
 			return null;
@@ -580,52 +599,61 @@ class PicoBuffer {
 			if( fmt != Depth24Stencil8 )
 				texture.uploadPixels(new hxd.Pixels(width,height,bytes,fmt ?? BGRA));
 		}
-		texture.wrap = Repeat;
-		texture.filter = Nearest;
-		return texture;
+		ptex = @:privateAccess new Texture(texture);
+		return ptex;
 	}
 
 }
 
-class PicoShader {
-	public var index : Int;
-	public var shader : hxsl.DynamicShader;
-	public var inits : Map<String,Dynamic>;
+class Texture extends ShaderParam {
 
-	public function new(index) {
-		this.index = index;
+	public var width(get,never) : Int;
+	public var height(get,never) : Int;
+	public var format(get,never) : hxd.PixelFormat;
+
+	var tex : h3d.mat.Texture;
+
+	function new(tex:h3d.mat.Texture) {
+		this.tex = tex;
+		filter(false);
+		wrap(true);
 	}
 
-	public function setCode( code : String ) {
-		var parser = new hscript.Parser();
-		parser.allowMetadata = true;
-		parser.allowTypes = true;
-		var name = "shader#"+index;
-		var expr = parser.parseString(code,name);
-		var mexpr = new hscript.Macro(null).convert(expr);
-		var hparser = new hxsl.MacroParser();
-		var hexpr = hparser.parseExpr(mexpr);
-		var shared = new hxsl.SharedShader("");
-		var checker = new hxsl.Checker();
-		shared.data = checker.check(name, hexpr);
-		@:privateAccess shared.initialize();
-		shader = new hxsl.DynamicShader(shared);
-		for( v in checker.inits )
-			shader.setVariable(v.v.name, hxsl.Ast.Tools.evalConst(v.e));
+	function get_width() {
+		return tex.width;
 	}
 
-}
+	function get_height() {
+		return tex.height;
+	}
 
-@:forward(width,height,isDisposed)
-abstract PicoTexture(h3d.mat.Texture) from h3d.mat.Texture {
+	function get_format() {
+		return tex.format;
+	}
 
-	var tex(get,never) : h3d.mat.Texture;
-	inline function get_tex() return this;
+	function getValue() : Dynamic {
+		return tex;
+	}
 
+	/**
+		If true, the texture will be sampled using bilinear filtering. If false, it will get the nearest pixel. Default is false.
+	**/
 	public function filter( b : Bool ) {
-		this.filter = b ? Linear : Nearest;
+		tex.filter = b ? Linear : Nearest;
 	}
+
+	/**
+		If true, accessing the texture outside [0,1] range will wrap around. If false, it will clamp to the edges. Default is true.
+	**/
 	public function wrap( b : Bool ) {
-		this.wrap = b ? Repeat : Clamp;
+		tex.wrap = b ? Repeat : Clamp;
 	}
+
+	/**
+		Tells if a texture has been disposed. This can happen if the memory buffer has been modified.
+	**/
+	public function isDisposed() {
+		return tex.isDisposed();
+	}
+
 }
