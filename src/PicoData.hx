@@ -1,4 +1,23 @@
 
+#if (js && !hxnodejs)
+import js.lib.Uint8Array;
+@:native("fflate")
+extern class FFlate {
+  static function deflateSync(data:Uint8Array, ?opts:Dynamic):Uint8Array;
+  static function inflateSync(data:Uint8Array, ?opts:Dynamic):Uint8Array;
+}
+class FFlateInit {
+	static function run( bytes : haxe.io.Bytes, ?opts ) {
+		var ret = FFlate.deflateSync(new js.lib.Uint8Array(bytes.getData()));
+		return haxe.io.Bytes.ofData(ret.buffer);
+	}
+	static function __init__() {
+		var c = haxe.zip.Compress;
+		(c:Dynamic).run = run;
+	}
+}
+#end
+
 class PicoData {
 	public var shaders : Array<String> = [];
 	public var code : String;
@@ -63,6 +82,7 @@ class PicoData {
 			for( i in 0...16 )
 				memory[i].encodeBytes(b);
 		}
+		b.addByte(0xFE);
 		return b.getBytes();
 	}
 
@@ -78,6 +98,7 @@ class PicoData {
 		shaders = [for( i in 0...b.readByte() ) uncompressCode(getBytes())];
 		if( shaders.length > 16 ) throw "assert";
 		memory = [for( i in 0...16 ) { var m = new PicoMem(); m.decodeBytes(b); m; }];
+		if( b.readByte() != 0xFE ) throw "Invalid or corrupted file";
 	}
 
 	public function getCodeSize() {
