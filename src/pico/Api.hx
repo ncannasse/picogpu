@@ -105,7 +105,7 @@ class Api {
 		sound = new hxd.snd.webaudio.Driver();
 		#end
 		channels = [
-			for( i in 0...1 ) {
+			for( i in 0...4 ) {
 				c : new PicoChannel(sound),
 				shader : null,
 				output : new h3d.mat.Texture(PicoChannel.BUFFER_SIZE,1,[Target],R32F)
