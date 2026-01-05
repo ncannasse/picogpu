@@ -2,6 +2,7 @@
 -lib hlsdl
 -lib domkit
 -lib hscript
+-lib hlopenal
 -hl picogpu.hl
 -cp src
 -D hscriptPos

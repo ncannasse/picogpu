@@ -1,0 +1,37 @@
+PICO-GPU.1
+#----
+/**
+	This is a simple sound shader.
+	You get two variables
+	- time : the time in seconds
+	- sound : the sound output between [-1,1]
+**/
+var time : Float;
+var sound : Float;
+
+// the partition (3 notes)
+var notes = [0,1,2,2,0,1,2,2,0,2,1,0,1,2];
+// the frequency of each note
+var freq = [440,349,293];
+// the number of notes played per second
+var bpm = 4;
+
+function fragment() {
+	var n = notes[int(time*bpm)%notes.length];
+	// fix precision
+	time %= bpm * notes.length;
+	sound = sin(freq[n] * PI * 2 * time);
+}
+----
+var outputColor : Vec4;
+var normal : Vec3;
+ // written by shader 0 (vertex)
+@param var light : Vec3;
+@perInstance @input var color : Vec4;
+function fragment() {
+	var l = light.dot(-normal).max(0.2);
+	outputColor = vec4(l.xxx,1) * color;
+}
+#----
+setChannel(0,0);
+#----

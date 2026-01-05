@@ -18,6 +18,22 @@ private class LinkedShader {
 	}
 }
 
+private class SoundShader extends h3d.shader.ScreenShader {
+	static var SRC = {
+		@param var offset : Float;
+		@param var freq : Float;
+		var sound : Float;
+		var time : Float;
+		function __init__fragment() {
+			time = (offset + calculatedUV.x) * freq;
+			sound = 0;
+		}
+		function fragment() {
+			pixelColor = vec4(sound,0,0,1);
+		}
+	};
+}
+
 @:access(pico.Buffer)
 @:access(pico.Texture)
 class Api {
@@ -40,6 +56,9 @@ class Api {
 	var data : PicoData;
 	var memory : Array<Buffer>;
 	var shaders : Array<PicoShader>;
+	var sound : hxd.snd.Driver;
+	var channels : Array<{ c : PicoChannel, shader : PicoShader, output : h3d.mat.Texture }>;
+	var soundRender : h3d.pass.ScreenFx<SoundShader>;
 
 	var startTime : Float;
 	var frameOffset = -1;
@@ -66,6 +85,12 @@ class Api {
 			for( m in memory )
 				m.dispose();
 		}
+		if( channels != null ) {
+			for( c in channels ) {
+				c.c.stop();
+				c.shader = null;
+			}
+		}
 		if( data != null )
 			loadData(data);
 	}
@@ -74,6 +99,19 @@ class Api {
 		outTexture = new h3d.mat.Texture(WIDTH,HEIGHT,[Target]);
 		outTexture.depthBuffer = new h3d.mat.Texture(WIDTH,HEIGHT,[Target],h3d.mat.Data.TextureFormat.Depth24Stencil8);
 		setCamera(new h3d.Camera().mcam);
+		#if hl
+		sound = new hxd.snd.openal.Driver();
+		#else
+		sound = new hxd.snd.webaudio.Driver();
+		#end
+		channels = [
+			for( i in 0...1 ) {
+				c : new PicoChannel(sound),
+				shader : null,
+				output : new h3d.mat.Texture(PicoChannel.BUFFER_SIZE,1,[Target],R32F)
+			}
+		];
+		soundRender = new h3d.pass.ScreenFx(new SoundShader());
 	}
 
 	function loadData( data : PicoData ) {
@@ -520,6 +558,37 @@ class Api {
 		return Std.int(Date.now().getTime() / 1000.);
 	}
 
+	/// SOUND ------
+
+	public function setChannel( channel : Int, shader : Int ) {
+		var c = channels[channel];
+		if( c == null ) {
+			log("Invalid channel");
+			return false;
+		}
+		if( shader < 0 ) {
+			c.c.stop();
+			c.shader = null;
+			return true;
+		}
+		var s = this.shaders[shader];
+		if( s == null ) {
+			log("Invalid shader index #"+shader);
+			return false;
+		}
+		if( s.shader == null ) {
+			log("Shader #"+shader+" is invalid");
+			return false;
+		}
+		if( c.shader != s ) {
+			c.c.stop();
+			c.shader = s;
+		}
+		return true;
+	}
+
+	/// SYSTEM ------
+
 	inline function log( v : String ) {
 		gpu.logOnce(v);
 	}
@@ -541,6 +610,25 @@ class Api {
 	}
 
 	function endFrame() {
+		for( c in channels )
+			if( c.c.update() ) {
+				if( c.shader != null ) {
+					soundRender.shader.offset = c.c.bufferCount;
+					soundRender.shader.freq = PicoChannel.BUFFER_SIZE / PicoChannel.FREQ;
+					soundRender.addShader(c.shader.shader);
+					gpu.engine.driver.setRenderTarget(c.output);
+					gpu.engine.driver.setRenderZone(0,0,c.output.width,c.output.height);
+					renderCtx.setCurrent();
+					@:privateAccess gpu.handleRuntimeError(() -> soundRender.render());
+					renderCtx.clearCurrent();
+					gpu.engine.driver.setRenderTarget(outTexture);
+					soundRender.removeShader(c.shader.shader);
+					var pix = c.output.capturePixels();
+					c.c.cpuBuffer.blit(0, pix.bytes, 0, pix.dataSize);
+				}
+				c.c.bufferCount++;
+				c.c.next();
+			}
 		gpu.engine.driver.setRenderZone(0,0,gpu.engine.width,gpu.engine.height);
 	}
 
