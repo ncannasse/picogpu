@@ -167,12 +167,10 @@ class Api {
 	// ---- SHADERS -----
 
 	/**
-		Set the current shader, or a combination of two shaders.
+		Set the current shader.
 	**/
-	public function setShader( index : Int, ?fragment ) {
-		var arr = [index];
-		if( fragment != null ) arr.push(fragment);
-		return setShaders(arr);
+	public function setShader( index : Int ) {
+		return setShaders([index]);
 	}
 
 	/**

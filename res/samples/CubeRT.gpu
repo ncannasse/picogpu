@@ -1,18 +1,22 @@
 PICO-GPU.1
 #----
 @input var pos : Vec3;
+@input var normal : Vec3;
+@input var uv  : Vec2;
+
 @global var cameraViewProj : Mat4;
+
 var outputPosition : Vec4;
+var outputColor : Vec4;
+
 function vertex() {
 	outputPosition = vec4(pos,1) * cameraViewProj;
 }
-----
-var outputColor : Vec4;
-@input var normal : Vec3;
-@input var uv  : Vec2;
+
 @param var tex : Sampler2D;
 @param var light : Vec3;
 @param var alpha : Float;
+
 function fragment() {
 	var l = light.dot(-normal).max(0.2);
 	outputColor = tex.get(uv);
@@ -49,7 +53,7 @@ function update() {
 	clear(vec4(0.1,0.1,0.12,1));
 
 	// draw scaled down texture
-	setShader(2);
+	setShader(1);
 	setParam("tex",tex);
 	setTarget(target);
 	cull(0);
@@ -65,7 +69,7 @@ function update() {
 
 	// draw cube
 	cull(-1);
-	setShader(0,1);
+	setShader(0);
 	setParam("alpha",0.7);
 	setParam("tex",target);
 	setParam("light",vec3(0.5,0.2,3).normalized());

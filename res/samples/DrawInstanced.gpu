@@ -2,20 +2,24 @@ PICO-GPU.1
 #----
 @input var pos : Vec3;
 @input var uv : Vec2;
+
 @global var cameraViewProj : Mat4;
+
+@param var light : Vec3;
+
 @perInstance @input var offset : Vec4;
+@perInstance @input var color : Vec4;
+
 var outputPosition : Vec4;
+var outputColor : Vec4;
+
 var normal : Vec3;
+
 function vertex() {
 	normal = pos.normalize();
 	outputPosition = vec4(pos + offset.xyz + uv.x*0,1) * cameraViewProj;
 }
-----
-var outputColor : Vec4;
-var normal : Vec3;
- // written by shader 0 (vertex)
-@param var light : Vec3;
-@perInstance @input var color : Vec4;
+
 function fragment() {
 	var l = light.dot(-normal).max(0.2);
 	outputColor = vec4(l.xxx,1) * color;
@@ -58,7 +62,7 @@ function update() {
 
 	// draw spheres
 	cull(-1);
-	setShader(0,1);
+	setShader(0);
 	setParam("light",vec3(0.5,0.2,1).normalized());
 	drawInstance(buffer,ibuf,256);
 }
