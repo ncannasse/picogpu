@@ -374,7 +374,7 @@ class PicoGpu extends hxd.App {
 	function syncCode() {
 		win.updateLineNumbers();
 		switch( editMode ) {
-		case Code:
+		case Code, Shaders:
 			var segs = new hscript.Colorizer().getColorSegments(win.code.splitText(win.code.text),0xEEEEEE);
 			for( i in 0...segs.length>>1 )
 				segs[i*2+1] |= 0xFF000000;
