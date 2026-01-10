@@ -171,7 +171,7 @@ class PicoGpu extends hxd.App {
 		"Blend" => "h3d.mat.Blend",
 		"Compare" => "h3d.mat.Compare",
 		"Stencil" => "h3d.mat.StencilOp",
-		"Math" => "hxd.Math",
+		"Math" => "Math",
 	];
 
 	var win : PicoWindow;
