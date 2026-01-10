@@ -82,6 +82,7 @@ class PicoWindow extends DynamicComponent {
 						<flow class="modeSelect">
 							for( i => m in ["Undef","I32","F32","Texture"] )
 								<button(m) id="memModes[]" onClick={() -> gpu.setMemMode(i)}/>
+							<button("Import") onClick={() -> gpu.importMemFile()}/>
 						</flow>
 						<flow class="modeStride">
 							<button("-") onClick={() -> gpu.changeStride(-1)}/>
@@ -312,17 +313,25 @@ class PicoGpu extends hxd.App {
 		var pngOut = new haxe.io.BytesOutput();
 		new format.png.Writer(pngOut).write(png);
 		var pngData = pngOut.getBytes();
-		var ext = "gpu.png";
+
 		if( textMode ) {
-			pngData = haxe.io.Bytes.ofString(api.data.getText());
-			ext = "gpu";
+			var textData = haxe.io.Bytes.ofString(api.data.getText());
+			hxd.File.saveAs(textData,{
+				title : "Select Data File",
+				defaultPath: "PicoGpuNew.gpu",
+				fileTypes : [{ name : "PICO GPU Text", extensions: ["gpu"] }],
+			});
+			return;
 		}
-		if( writeFile != null ) {
+
+		if( writeFile != null && !newFile ) {
 			if( PREFS.lastFile != null ) log(PREFS.lastFile+" saved");
 			writeFile(pngData);
 			return;
 		}
+
 		PREFS.lastFile = null;
+		var ext = "gpu.png";
 		hxd.File.saveAs(pngData,{
 			title : "Select Data File",
 			defaultPath: "PicoGpuNew."+ext,
@@ -411,6 +420,34 @@ class PicoGpu extends hxd.App {
 		default:
 			win.code.setColorSegments(null);
 		}
+	}
+
+	public function importMemFile() {
+		hxd.File.browse(function(sel) {
+			sel.load(function(bytes) {
+				var ext = sel.fileName.split(".").pop().toLowerCase();
+				var mem = new PicoMem();
+				switch( ext ) {
+				case "wav":
+					var sample : hxd.snd.Data = new hxd.snd.WavData(bytes);
+					sample = sample.resample(48000,F32,1);
+					var bytes = haxe.io.Bytes.alloc(sample.samples << 2);
+					sample.decode(bytes,0,0,sample.samples);
+					mem.data = Floats([for( i in 0...sample.samples ) bytes.getFloat(i << 2)]);
+				default:
+					mem.data = Ints([for( i in 0...bytes.length>>2 ) bytes.getInt32(i<<2)]);
+				}
+				api.data.memory[editMemory] = mem;
+				setMode(Memory);
+				onCodeChange();
+			});
+		},{
+			title : "Select import file",
+			fileTypes : [
+				{ name : "WAV", extensions: ["wav"] },
+				{ name : "RAW", extensions: ["raw"] }
+			]
+		});
 	}
 
 	public function setMemMode( mode : Int ) {
