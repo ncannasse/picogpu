@@ -208,7 +208,8 @@ class PicoGpu extends hxd.App {
 		}
 		#end
 		#if js
-		js.Browser.window.addEventListener("keydown", function(e) e.preventDefault());
+		js.Browser.document.addEventListener("keydown", function(e) e.preventDefault());
+		js.Browser.document.getElementById("webgl").addEventListener("keydown",function(e) e.preventDefault());
 		#end
 		if( data == null ) loadSample("Start.gpu") else loadData(data);
 		initUI();

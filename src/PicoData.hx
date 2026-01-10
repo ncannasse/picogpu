@@ -62,7 +62,7 @@ class PicoData {
 	}
 
 	function cleanup() {
-		while( shaders.length > 0 && StringTools.trim(shaders[shaders.length-1]) == "" ) shaders.pop();
+		while( shaders.length > 0 && (shaders[shaders.length-1] == null || StringTools.trim(shaders[shaders.length-1]) == "") ) shaders.pop();
 	}
 
 	public function getBytes(codeOnly=false) {
