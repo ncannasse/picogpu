@@ -187,7 +187,7 @@ class PicoGpu extends hxd.App {
 	var editMemMode : Bool;
 	var editStride = 4;
 	var prevIndex : Int;
-	var fileName : String;
+	var writeFile : haxe.io.Bytes -> Void;
 	public var pad : hxd.Pad;
 
 	static var PREFS = hxd.Save.load({ lastFile : null, storages : new Map<String,haxe.io.Bytes>() });
@@ -196,8 +196,20 @@ class PicoGpu extends hxd.App {
 		pad = hxd.Pad.createDummy();
 		hxd.Pad.wait(function(p) pad = p);
 		initSystem();
-		fileName = PREFS.lastFile;
-		var data = #if js null #else fileName == null ? null : try sys.io.File.getBytes(fileName) catch( e : Dynamic ) null #end;
+		var data = null;
+		#if sys
+		var file = PREFS.lastFile;
+		if( file != null ) {
+			data = try sys.io.File.getBytes(file) catch( e : Dynamic ) null;
+			if( data != null ) {
+				writeFile = sys.io.File.saveBytes.bind(file);
+				setFile(file);
+			}
+		}
+		#end
+		#if js
+		js.Browser.window.addEventListener("keydown", function(e) e.preventDefault());
+		#end
 		if( data == null ) loadSample("Start.gpu") else loadData(data);
 		initUI();
 		start();
@@ -229,18 +241,29 @@ class PicoGpu extends hxd.App {
 		return bytes;
 	}
 
+	function setFile( path : String, sample=false ) {
+		if( !sample ) {
+			PREFS.lastFile = path;
+			savePrefs();
+		}
+		hxd.Window.getInstance().title = path == null ? "PicoGPU" : "PicoGPU - " + path.split("\\").join("/").split("/").pop();
+	}
+
 	public function load() {
+		writeFile = null;
 		hxd.File.browse(function(sel) {
 			sel.load(function(bytes) {
 				win.clearError();
 				handleRuntimeError(() -> {
 					loadData(bytes);
-					this.fileName = sel.fileName;
-					PREFS.lastFile = fileName;
-					savePrefs();
+					setFile(sel.fileName);
 				});
 			});
-		},{ title : "Select Data File", fileTypes : [{ name : "PICO GPU", extensions: ["gpu.png"] }]});
+		},{
+			title : "Select Data File",
+			fileTypes : [{ name : "PICO GPU", extensions: ["gpu.png"] }],
+			writeFile : (f) -> writeFile = f,
+		});
 	}
 
 	function loadData( bytes : haxe.io.Bytes ) {
@@ -293,25 +316,30 @@ class PicoGpu extends hxd.App {
 			pngData = haxe.io.Bytes.ofString(api.data.getText());
 			ext = "gpu";
 		}
-		if( fileName == null || newFile ) {
-			hxd.File.saveAs(pngData,{
-				title : "Select Data File",
-				defaultPath: "PicoGpuNew."+ext,
-				fileTypes : [{ name : "PICO GPU", extensions: [ext] }],
-				saveFileName : (name) -> fileName = name,
-			});
+		if( writeFile != null ) {
+			if( PREFS.lastFile != null ) log(PREFS.lastFile+" saved");
+			writeFile(pngData);
+			return;
 		}
-		#if sys
-		else
-			sys.io.File.saveBytes(fileName, pngData);
-		#end
+		PREFS.lastFile = null;
+		hxd.File.saveAs(pngData,{
+			title : "Select Data File",
+			defaultPath: "PicoGpuNew."+ext,
+			fileTypes : [{ name : "PICO GPU", extensions: [ext] }],
+			writeFile : (f) -> writeFile = f,
+			saveFileName : (name) -> {
+				setFile(name);
+				log(name+" saved");
+			}
+		});
 	}
 
 	public function loadSample( name : String ) {
 		var data = new PicoData();
 		data.loadText(hxd.Res.load("samples/"+name).entry.getText());
 		api.loadData(data);
-		fileName = null;
+		writeFile = null;
+		setFile(name,true);
 		if( win != null ) setMode(Code);
 	}
 
