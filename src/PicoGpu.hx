@@ -209,8 +209,17 @@ class PicoGpu extends hxd.App {
 		}
 		#end
 		#if js
-		js.Browser.document.addEventListener("keydown", function(e) e.preventDefault());
-		js.Browser.document.getElementById("webgl").addEventListener("keydown",function(e) e.preventDefault());
+		function prevent(e:js.html.KeyboardEvent) {
+			switch( e.keyCode ) {
+			case hxd.Key.F1,hxd.Key.F2,hxd.Key.F3,hxd.Key.F4,hxd.Key.F5:
+				e.preventDefault();
+			case "S".code if( e.ctrlKey ):
+				e.preventDefault();
+			default:
+			}
+		}
+		js.Browser.document.addEventListener("keydown", prevent);
+		js.Browser.document.getElementById("webgl").addEventListener("keydown",prevent);
 		#end
 		if( data == null ) loadSample("Start.gpu") else loadData(data);
 		initUI();
