@@ -56,6 +56,7 @@ class PicoApi {
 	var buffers : h3d.shader.Buffers;
 	var outTexture : h3d.mat.Texture;
 	var needFlush = true;
+	var stopped = false;
 
 	var data : PicoData;
 	var memory : Array<Buffer>;
@@ -80,6 +81,7 @@ class PicoApi {
 	}
 
 	function reset() {
+		stopped = false;
 		buttonDown = false;
 		buttonDown = button();
 		button2Down = false;
@@ -624,6 +626,10 @@ class PicoApi {
 
 	public function error( msg : Dynamic ) {
 		gpu.logOnce(Std.string(msg), true);
+	}
+
+	public function stop() {
+		stopped = true;
 	}
 
 	function beginFrame() {

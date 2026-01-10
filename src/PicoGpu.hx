@@ -674,8 +674,8 @@ class PicoGpu extends hxd.App {
 		var strLine = line+": "+str;
 		var out = StringTools.htmlEscape(strLine);
 		if( error ) out = '<error>'+out+'</error>';
-		if( logText[logText.length-1] == out ) return;
-		log(strLine, error);
+		if( logText[logText.length-1] != out )
+			log(strLine, error);
 		if( error && !win.hasError() )
 			win.setError(line, str);
 	}
@@ -693,15 +693,17 @@ class PicoGpu extends hxd.App {
 	}
 
 	function draw( ?callb : String = "update" ) {
-		engine.pushTarget(api.outTexture);
-		engine.clear(0xFF000000,1,0);
-		@:privateAccess api.beginFrame();
-		if( interp != null ) {
-			var upd : Dynamic = interp.variables.get(callb);
-			if( upd != null && Reflect.isFunction(upd) ) handleRuntimeError(() -> upd());
+		if( !api.stopped ) {
+			engine.pushTarget(api.outTexture);
+			engine.clear(0xFF000000,1,0);
+			@:privateAccess api.beginFrame();
+			if( interp != null ) {
+				var upd : Dynamic = interp.variables.get(callb);
+				if( upd != null && Reflect.isFunction(upd) ) handleRuntimeError(() -> upd());
+			}
+			@:privateAccess api.endFrame();
+			engine.popTarget();
 		}
-		@:privateAccess api.endFrame();
-		engine.popTarget();
 		win.scene.tile = win.sceneFS.tile = h2d.Tile.fromTexture(@:privateAccess api.displayTex?.tex ?? api.outTexture);
 	}
 
