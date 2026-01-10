@@ -171,7 +171,6 @@ class PicoGpu extends hxd.App {
 		"Blend" => "h3d.mat.Blend",
 		"Compare" => "h3d.mat.Compare",
 		"Stencil" => "h3d.mat.StencilOp",
-		"Math" => "Math",
 	];
 
 	var win : PicoWindow;
@@ -478,7 +477,7 @@ class PicoGpu extends hxd.App {
 			hxd.File.browse(function(sel) {
 				sel.load(function(bytes) {
 					var file = sel.fileName.split("\\").join("/").split("/").pop();
-					var pixels = try hxd.res.Any.fromBytes(file,bytes).toImage().getPixels() catch( e : Dynamic ) { log(Std.string(e)); return; }
+					var pixels = try hxd.res.Any.fromBytes(file,bytes).toImage().getPixels() catch( e : Dynamic ) { log(Std.string(e),true); return; }
 					mem.data = Texture(file, pixels);
 					flush(true);
 				});
@@ -642,7 +641,7 @@ class PicoGpu extends hxd.App {
 				interp.variables.set(f, #if js js.Syntax.code("$bind({0},{1})",api,v) #else v #end);
 		}
 		interp.variables.set("trace", Reflect.makeVarArgs(function(args) {
-			log(Std.string(args[0]));
+			log([for( a in args ) Std.string(a)].join(", "), false);
 		}));
 
 		if( api.data.getTotalSize() > PicoApi.MAX_SIZE ) {
@@ -661,16 +660,20 @@ class PicoGpu extends hxd.App {
 		handleRuntimeError(() -> interp.execute(expr));
 	}
 
-	public function log( msg : Dynamic ) {
-		logText.push(StringTools.htmlEscape(Std.string(msg)));
+	public function log( msg : Dynamic, error = false ) {
+		var out = StringTools.htmlEscape(Std.string(msg));
+		if( error ) out = '<error>'+out+'</error>';
+		logText.push(out);
 		while( logText.length > 500 ) logText.shift();
 		win.log.text = logText.join("<br/>");
 		win.logContent.scrollPosY = 100000;
 	}
 
-	public function logOnce( str : String ) {
-		if( logText[logText.length-1] == StringTools.htmlEscape(str) ) return;
-		log(str);
+	public function logOnce( str : String, error : Bool ) {
+		var out = StringTools.htmlEscape(str);
+		if( error ) out = '<error>'+out+'</error>';
+		if( logText[logText.length-1] == out ) return;
+		log(str, error);
 	}
 
 	function handleRuntimeError( f : Void -> Void ) {
@@ -678,7 +681,7 @@ class PicoGpu extends hxd.App {
 			f();
 		} catch( e : Dynamic ) {
 			var line = @:privateAccess interp.curExpr?.line;
-			logOnce(line+": "+Std.string(e));
+			logOnce(line+": "+Std.string(e),true);
 			if( !win.hasError() )
 				win.setError(line, Std.string(e));
 		}

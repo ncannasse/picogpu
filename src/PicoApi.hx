@@ -190,11 +190,11 @@ class PicoApi {
 		for( index in arr ) {
 			var s = this.shaders[index];
 			if( s == null ) {
-				log("Invalid shader index #"+index);
+				error("Invalid shader index #"+index);
 				return false;
 			}
 			if( s.shader == null ) {
-				log("Shader #"+index+" is invalid");
+				error("Shader #"+index+" is invalid");
 				return false;
 			}
 			shaders.push(s);
@@ -302,6 +302,30 @@ class PicoApi {
 	public function random( max : Int ) {
 		return Std.random(max);
 	}
+
+	public function abs(v:Float) return Math.abs(v);
+
+	public function cos(v:Float) return Math.cos(v);
+	public function sin(v:Float) return Math.sin(v);
+	public function tan(v:Float) return Math.tan(v);
+	public function acos(v:Float) return Math.acos(v);
+	public function asin(v:Float) return Math.asin(v);
+	public function atan(v:Float) return Math.atan(v);
+	public function atan2(y:Float,x:Float) return Math.atan2(y,x);
+
+	public function ceil(v:Float) return Math.ceil(v);
+	public function floor(v:Float) return Math.floor(v);
+	public function round(v:Float) return Math.round(v);
+
+	public function exp(v:Float) return Math.exp(v);
+	public function log(v:Float) return Math.log(v);
+	public function min(a:Float,b:Float) return Math.min(a,b);
+	public function max(a:Float,b:Float) return Math.max(a,b);
+	public function imin(a:Int,b:Int) return hxd.Math.imin(a,b);
+	public function imax(a:Int,b:Int) return hxd.Math.imax(a,b);
+
+	public function pow(a:Float,b:Float) return Math.pow(a,b);
+	public function sqrt(v:Float) return Math.sqrt(v);
 
 	// --- MATERIAL ----
 
@@ -415,11 +439,11 @@ class PicoApi {
 	public function draw( buffer : Buffer, ?index : Buffer, ?startTri = 0, ?drawTri = -1 ) {
 		if( currentShader == null ) return;
 		if( buffer == null ) {
-			log("Null buffer");
+			error("Null buffer");
 			return;
 		}
 		if( currentShader.instanceFormat != null ) {
-			log("Shader needs drawInstance()");
+			error("Shader needs drawInstance()");
 			return;
 		}
 		flush();
@@ -435,7 +459,7 @@ class PicoApi {
 	public function drawInstance( buffer : Buffer, instanceBuffer : Buffer, count : Int, ?index : Buffer ) {
 		if( currentShader == null ) return;
 		if( buffer == null ) {
-			log("Null buffer");
+			error("Null buffer");
 			return;
 		}
 		var buf = buffer.alloc(currentShader.format);
@@ -572,7 +596,7 @@ class PicoApi {
 	public function setChannel( channel : Int, shader : Int ) {
 		var c = channels[channel];
 		if( c == null ) {
-			log("Invalid channel");
+			error("Invalid channel");
 			return false;
 		}
 		if( shader < 0 ) {
@@ -582,11 +606,11 @@ class PicoApi {
 		}
 		var s = this.shaders[shader];
 		if( s == null ) {
-			log("Invalid shader index #"+shader);
+			error("Invalid shader index #"+shader);
 			return false;
 		}
 		if( s.shader == null ) {
-			log("Shader #"+shader+" is invalid");
+			error("Shader #"+shader+" is invalid");
 			return false;
 		}
 		if( c.shader != s ) {
@@ -598,8 +622,8 @@ class PicoApi {
 
 	/// SYSTEM ------
 
-	inline function log( v : String ) {
-		gpu.logOnce(v);
+	public function error( msg : Dynamic ) {
+		gpu.logOnce(Std.string(msg), true);
 	}
 
 	function beginFrame() {
