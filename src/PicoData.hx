@@ -3,13 +3,14 @@
 import js.lib.Uint8Array;
 @:native("fflate")
 extern class FFlate {
-  static function deflateSync(data:Uint8Array, ?opts:Dynamic):Uint8Array;
-  static function inflateSync(data:Uint8Array, ?opts:Dynamic):Uint8Array;
+  static function zlibSync(data:Uint8Array, ?opts:Dynamic):Uint8Array;
 }
 class FFlateInit {
 	static function run( bytes : haxe.io.Bytes, ?opts ) {
-		var ret = FFlate.deflateSync(new js.lib.Uint8Array(bytes.getData()));
-		return haxe.io.Bytes.ofData(ret.buffer);
+		var level = opts.level ?? 9;
+		var ret = FFlate.zlibSync(new js.lib.Uint8Array(bytes.getData()),{raw:false,level:level});
+		var out = haxe.io.Bytes.ofData(ret.buffer);
+		return out;
 	}
 	static function __init__() {
 		var c = haxe.zip.Compress;
@@ -35,7 +36,7 @@ class PicoData {
 		shaders = [for( v in get().split("----") ) StringTools.trim(v)];
 		code = get();
 		var memlines = get();
-		memory = [for( l in memlines.split("\n") ) { var m = new PicoMem(); m.decode(StringTools.trim(l)); m; }];
+		memory = memlines == "" ? [] : [for( l in memlines.split("\n") ) { var m = new PicoMem(); m.decode(StringTools.trim(l)); m; }];
 		while( memory.length < 16 ) memory.push(new PicoMem());
 	}
 
