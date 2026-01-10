@@ -1,5 +1,3 @@
-package pico;
-
 import hxd.Key in K;
 
 private class LinkedShader {
@@ -40,9 +38,9 @@ private class SoundShader extends h3d.shader.ScreenShader {
 	};
 }
 
-@:access(pico.Buffer)
-@:access(pico.Texture)
-class Api {
+@:access(Buffer)
+@:access(Texture)
+class PicoApi {
 
 	static final FPS = 60;
 	static final WIDTH = 640;
@@ -151,7 +149,6 @@ class Api {
 	/**
 		Load the memory buffer at the given Memory index.
 		You can have up to 16 different memory buffers.
-		The total memory (including code data) cannot exceed 64KB
 	**/
 	public function loadBuffer( index : Int ) : Buffer {
 		return memory[index];

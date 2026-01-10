@@ -1,5 +1,3 @@
-import pico.Api;
-
 enum DispMode {
 	Code;
 	Shaders;
@@ -164,7 +162,7 @@ class PicoWindow extends DynamicComponent {
 
 }
 
-@:access(pico.Api)
+@:access(PicoApi)
 @:access(PicoWindow)
 class PicoGpu extends hxd.App {
 
@@ -177,7 +175,7 @@ class PicoGpu extends hxd.App {
 	];
 
 	var win : PicoWindow;
-	var api : Api;
+	var api : PicoApi;
 	var style : h2d.domkit.Style;
 	var logText : Array<String> = [];
 	var checker : hscript.Checker;
@@ -280,11 +278,11 @@ class PicoGpu extends hxd.App {
 	function loadData( bytes : haxe.io.Bytes ) {
 		var png = new format.png.Reader(new haxe.io.BytesInput(bytes)).read();
 		var header = format.png.Tools.getHeader(png);
-		if( header.width * header.height != Api.MAX_SIZE )
+		if( header.width * header.height != PicoApi.MAX_SIZE )
 			throw "Invalid PNG format";
 		var pngData = format.png.Tools.extract32(png);
-		var bdat = haxe.io.Bytes.alloc(Api.MAX_SIZE);
-		for( i in 0...Api.MAX_SIZE ) {
+		var bdat = haxe.io.Bytes.alloc(PicoApi.MAX_SIZE);
+		for( i in 0...PicoApi.MAX_SIZE ) {
 			var p = pngData.getInt32(i << 2);
 			var v = ((p&3) << 6) | (((p >> 8) & 3) << 4) | (((p >> 16) & 3) << 2) | ((p >> 24) & 3);
 			bdat.set(i, v);
@@ -296,7 +294,7 @@ class PicoGpu extends hxd.App {
 	}
 
 	public function save( newFile=false, textMode=false ) {
-		if( api.data.getTotalSize() > Api.MAX_SIZE ) {
+		if( api.data.getTotalSize() > PicoApi.MAX_SIZE ) {
 			checkCode(); // force error
 			return;
 		}
@@ -305,10 +303,10 @@ class PicoGpu extends hxd.App {
 		if( screen != null && Reflect.isFunction(screen) ) upd = "screenshot";
 		draw(upd);
 		var pix = @:privateAccess api.outTexture.capturePixels();
-		if( pix.width * pix.height != Api.MAX_SIZE ) throw "assert";
+		if( pix.width * pix.height != PicoApi.MAX_SIZE ) throw "assert";
 		pix.convert(ARGB);
 		var data = api.data.getBytes();
-		for( i in 0...Api.MAX_SIZE ) {
+		for( i in 0...PicoApi.MAX_SIZE ) {
 			var b = i < data.length ? data.get(i) : 0;
 			var col = pix.bytes.getInt32(i << 2);
 			col &= 0xFCFCFCFC;
@@ -544,9 +542,9 @@ class PicoGpu extends hxd.App {
 	}
 
 	function initSystem() {
-		api = new Api(this);
+		api = new PicoApi(this);
 		checker = new hscript.Checker(hscript.LiveClass.getTypes());
-		switch( checker.types.resolve("pico.Api") ) {
+		switch( checker.types.resolve("PicoApi") ) {
 		case TInst(c,_): checker.setGlobals(c);
 		default:
 		}
@@ -647,8 +645,8 @@ class PicoGpu extends hxd.App {
 			log(Std.string(args[0]));
 		}));
 
-		if( api.data.getTotalSize() > Api.MAX_SIZE ) {
-			handleRuntimeError(() -> throw "Total mem size is "+fmtSize(api.data.getTotalSize())+" >"+fmtSize(Api.MAX_SIZE));
+		if( api.data.getTotalSize() > PicoApi.MAX_SIZE ) {
+			handleRuntimeError(() -> throw "Total mem size is "+fmtSize(api.data.getTotalSize())+" >"+fmtSize(PicoApi.MAX_SIZE));
 			interp = null;
 			return;
 		}
