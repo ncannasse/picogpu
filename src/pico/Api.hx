@@ -68,6 +68,8 @@ class Api {
 
 	var startTime : Float;
 	var frameOffset = -1;
+	var buttonDown : Bool;
+	var button2Down : Bool;
 
 	var displayTex : Texture;
 
@@ -80,6 +82,10 @@ class Api {
 	}
 
 	function reset() {
+		buttonDown = false;
+		buttonDown = button();
+		button2Down = false;
+		button2Down = button2();
 		buffers = new h3d.shader.Buffers();
 		shaderCombi = new Map();
 		renderCtx = @:privateAccess new h3d.impl.RenderContext();
@@ -511,11 +517,12 @@ class Api {
 	public function button() {
 		if( hasFocus() ) {
 			if( K.isDown(K.SPACE) || K.isDown("E".code) || K.isDown(K.MOUSE_LEFT) )
-				return true;
+				return !buttonDown;
 		}
 		var pad = gpu.pad;
 		if( pad.buttons[pad.config.A] || pad.buttons[pad.config.X] )
-			return true;
+			return !buttonDown;
+		buttonDown = false;
 		return false;
 	}
 
@@ -525,11 +532,12 @@ class Api {
 	public function button2() {
 		if( hasFocus() ) {
 			if( K.isDown(K.ENTER) || K.isDown("R".code) || K.isDown(K.MOUSE_RIGHT) )
-				return true;
+				return !button2Down;
 		}
 		var pad = gpu.pad;
 		if( pad.buttons[pad.config.B] || pad.buttons[pad.config.Y] )
-			return true;
+			return !button2Down;
+		button2Down = false;
 		return false;
 	}
 
