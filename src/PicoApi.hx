@@ -38,6 +38,18 @@ private class SoundShader extends h3d.shader.ScreenShader {
 	};
 }
 
+private class BaseShader extends hxsl.Shader {
+	static var SRC = {
+		var picoOutPosition : Vec4;
+		var outputPosition : Vec4;
+		@global var cameraProjFlip : Float;
+		function vertex() {
+			picoOutPosition = outputPosition * vec4(1,cameraProjFlip,1,1);
+		}
+	}
+
+}
+
 @:access(Buffer)
 @:access(Texture)
 class PicoApi {
@@ -64,6 +76,7 @@ class PicoApi {
 	var sound : hxd.snd.Driver;
 	var channels : Array<{ c : PicoChannel, shader : PicoShader, output : h3d.mat.Texture }>;
 	var soundRender : h3d.pass.ScreenFx<SoundShader>;
+	var baseShader : BaseShader;
 
 	var startTime : Float;
 	var frameOffset = -1;
@@ -75,7 +88,7 @@ class PicoApi {
 	function new(gpu:PicoGpu) {
 		this.gpu = gpu;
 		currentOutput = new h3d.pass.OutputShader();
-		currentOutput.setOutput([Value("outputColor")],"outputPosition");
+		currentOutput.setOutput([Value("outputColor")],"picoOutPosition");
 		reset();
 		init();
 	}
@@ -88,7 +101,9 @@ class PicoApi {
 		button2Down = button2();
 		buffers = new h3d.shader.Buffers();
 		shaderCombi = new Map();
+		baseShader = new BaseShader();
 		renderCtx = @:privateAccess new h3d.impl.RenderContext();
+		renderCtx.globals.set("cameraProjFlip", gpu.engine.driver.hasFeature(BottomLeftCoords) ? -1 : 1);
 		currentMaterial = new h3d.mat.Pass("default");
 		currentShader = null;
 		needFlush = true;
@@ -207,6 +222,7 @@ class PicoApi {
 			var sl = null;
 			for( s in shaders )
 				sl = new hxsl.ShaderList(s.shader,sl);
+			sl = new hxsl.ShaderList(baseShader, sl);
 			var rt = currentOutput.compileShaders(renderCtx.globals, sl);
 			sh = new LinkedShader(rt,sl,shaders);
 			shaderCombi.set(key, sh);

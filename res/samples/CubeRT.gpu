@@ -68,7 +68,7 @@ function update() {
 	setCamera(m);
 
 	// draw cube
-	cull(-1);
+	cull(1);
 	setShader(0);
 	setParam("alpha",0.7);
 	setParam("tex",target);
