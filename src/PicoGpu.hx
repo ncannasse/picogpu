@@ -641,7 +641,7 @@ class PicoGpu extends hxd.App {
 				interp.variables.set(f, #if js js.Syntax.code("$bind({0},{1})",api,v) #else v #end);
 		}
 		interp.variables.set("trace", Reflect.makeVarArgs(function(args) {
-			log([for( a in args ) Std.string(a)].join(", "), false);
+			log(getCurrentLine()+": "+[for( a in args ) Std.string(a)].join(", "), false);
 		}));
 
 		if( api.data.getTotalSize() > PicoApi.MAX_SIZE ) {
@@ -670,20 +670,25 @@ class PicoGpu extends hxd.App {
 	}
 
 	public function logOnce( str : String, error : Bool ) {
-		var out = StringTools.htmlEscape(str);
+		var line = getCurrentLine();
+		var strLine = line+": "+str;
+		var out = StringTools.htmlEscape(strLine);
 		if( error ) out = '<error>'+out+'</error>';
 		if( logText[logText.length-1] == out ) return;
-		log(str, error);
+		log(strLine, error);
+		if( error && !win.hasError() )
+			win.setError(line, str);
+	}
+
+	public function getCurrentLine() : Int {
+		return @:privateAccess interp.curExpr?.line;
 	}
 
 	function handleRuntimeError( f : Void -> Void ) {
 		try {
 			f();
 		} catch( e : Dynamic ) {
-			var line = @:privateAccess interp.curExpr?.line;
-			logOnce(line+": "+Std.string(e),true);
-			if( !win.hasError() )
-				win.setError(line, Std.string(e));
+			logOnce(Std.string(e), true);
 		}
 	}
 
