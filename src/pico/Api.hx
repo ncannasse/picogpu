@@ -21,11 +21,14 @@ private class LinkedShader {
 private class SoundShader extends h3d.shader.ScreenShader {
 	static var SRC = {
 		@param var offset : Float;
+		@param var highOffset : Float;
 		@param var freq : Float;
 		var sound : Float;
 		var time : Float;
+		var time2 : Float;
 		function __init__fragment() {
 			time = (offset + calculatedUV.x) * freq;
+			time2 = highOffset * freq;
 			sound = 0;
 		}
 		function fragment() {
@@ -611,8 +614,14 @@ class Api {
 		for( c in channels )
 			if( c.c.update() ) {
 				if( c.shader != null ) {
-					soundRender.shader.offset = c.c.bufferCount;
+					// we don't want our time to be too high
+					// or we will lose precision. Since we need about ~12 bits for buffer position
+					// and a typical 32 bit float has 23 bits of mantissa, we will keep 11 bits in
+					// high bits. This will loop every ~2 minutes but can be handled with `time2`
+					var loop = (1 << 11) - 1;
+					soundRender.shader.offset = c.c.bufferCount & loop;
 					soundRender.shader.freq = PicoChannel.BUFFER_SIZE / PicoChannel.FREQ;
+					soundRender.shader.highOffset = c.c.bufferCount & ~loop;
 					soundRender.addShader(c.shader.shader);
 					gpu.engine.driver.setRenderTarget(c.output);
 					gpu.engine.driver.setRenderZone(0,0,c.output.width,c.output.height);
