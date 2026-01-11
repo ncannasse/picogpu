@@ -5,7 +5,8 @@ import { defineUserConfig } from 'vuepress'
 export default defineUserConfig({
 	bundler: viteBundler(),
 	title : 'Pico GPU',
-	dest : 'www',
+	dest : 'docs',
+	base : '/picogpu/',
 	head : [
 		['script',{src:"fflate.js"}],
 		['script',{src:"picogpu.js"}]
