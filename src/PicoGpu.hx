@@ -180,11 +180,11 @@ class PicoGpu extends hxd.App {
 	var checker : hscript.Checker;
 	var interp : hscript.Interp;
 	var editMode : DispMode;
-	var editShader : Int;
-	var editMemory : Int;
+	var editShader : Int = 0;
+	var editMemory : Int = 0;
 	var editMemMode : Bool;
 	var editStride = 4;
-	var prevIndex : Int;
+	var prevIndex : Int = 0;
 	var writeFile : haxe.io.Bytes -> Void;
 	public var font : h2d.Font;
 	public var pad : hxd.Pad;
