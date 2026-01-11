@@ -12,7 +12,11 @@ export default defineUserConfig({
 		['script',{src:"picogpu.js"}]
 	],
 	theme: defaultTheme({
-	colorMode: 'dark',
+		colorMode: 'dark',
+		lastUpdated: false,
+		contributors: false,
+		prevLink: false,
+		nextLink: false,
 		sidebar : [
 		{
 			text : 'Home',

@@ -747,8 +747,10 @@ class PicoGpu extends hxd.App {
 		var initDone = false;
 		(js.Browser.window : Dynamic).picoGpuStart = function() {
 			if( initDone ) return false;
-			initDone = true;
+			if( js.Browser.document.getElementById("webgl") == null )
+				return false;
 			new PicoGpu();
+			initDone = true;
 			return true;
 		};
 		#else
