@@ -9,7 +9,11 @@ export default defineUserConfig({
 	base : '/picogpu/',
 	head : [
 		['script',{src:"fflate.js"}],
-		['script',{src:"picogpu.js"}]
+		['script',{src:"picogpu.js"}],
+		['meta', { property: 'og:title', content: 'Pico GPU' }],
+		['meta', { property: 'og:description', content: 'Experiment with GPU programming and sound synth' }],
+		['meta', { property: 'og:image', content: 'og-image.png' }],
+		['meta', { property: 'og:type', content: 'website' }]
 	],
 	theme: defaultTheme({
 		colorMode: 'dark',
