@@ -67,7 +67,6 @@ class PicoApi {
 	var renderCtx : h3d.impl.RenderContext;
 	var buffers : h3d.shader.Buffers;
 	var outTexture : h3d.mat.Texture;
-	var needFlush = true;
 	var stopped = false;
 
 	var data : PicoData;
@@ -84,6 +83,7 @@ class PicoApi {
 	var button2Down : Bool;
 
 	var displayTex : Texture;
+	var textBuf : h3d.Buffer;
 
 	function new(gpu:PicoGpu) {
 		this.gpu = gpu;
@@ -102,11 +102,12 @@ class PicoApi {
 		buffers = new h3d.shader.Buffers();
 		shaderCombi = new Map();
 		baseShader = new BaseShader();
+		textBuf = new h3d.Buffer(256*4,hxd.BufferFormat.XY_UV,[Dynamic]);
 		renderCtx = @:privateAccess new h3d.impl.RenderContext();
 		renderCtx.globals.set("cameraProjFlip", gpu.engine.driver.hasFeature(BottomLeftCoords) ? -1 : 1);
+		renderCtx.globals.set("textFont", gpu.font.tile.getTexture());
 		currentMaterial = new h3d.mat.Pass("default");
 		currentShader = null;
-		needFlush = true;
 		frameOffset = -1;
 		if( memory != null ) {
 			for( m in memory )
@@ -227,10 +228,8 @@ class PicoApi {
 			sh = new LinkedShader(rt,sl,shaders);
 			shaderCombi.set(key, sh);
 		}
-		if( currentShader != sh ) {
+		if( currentShader != sh )
 			currentShader = sh;
-			needFlush = true;
-		}
 		return true;
 	}
 
@@ -352,7 +351,6 @@ class PicoApi {
 	**/
 	public function cull( v : Int ) {
 		currentMaterial.culling = v == 0 ? None : v > 0 ? Back : Front;
-		needFlush = true;
 	}
 
 	/**
@@ -360,16 +358,26 @@ class PicoApi {
 	**/
 	public function blend( src, dst ) {
 		currentMaterial.blend(src, dst);
-		needFlush = true;
+	}
+
+	public function alpha( b : Bool ) {
+		if( b )
+			currentMaterial.blend(SrcAlpha,OneMinusSrcAlpha);
+		else
+			currentMaterial.blend(One, Zero);
 	}
 
 	/**
 		Set the depth compare mode (using the `Compare` global) and tell if the depth should be written.
 	**/
-	public function depth( comp, write = true ) {
+	public function depth( use : Bool ) {
+		currentMaterial.depthTest = use ? Less : Always;
+		currentMaterial.depthWrite = use;
+	}
+
+	public function depthCompare( comp, write = true ) {
 		currentMaterial.depthTest = comp;
 		currentMaterial.depthWrite = write;
-		needFlush = true;
 	}
 
 	/**
@@ -411,8 +419,6 @@ class PicoApi {
 
 	function flush() {
 		if( currentShader == null ) return;
-		if( !needFlush ) return;
-		needFlush = false;
 		buffers.grow(currentShader.rt);
 		renderCtx.fillGlobals(buffers,currentShader.rt);
 		renderCtx.fillParams(buffers,currentShader.rt,currentShader.list);
@@ -491,6 +497,36 @@ class PicoApi {
 		var fmt = hxd.BufferFormat.MultiFormat.make([for( b in buffers ) b.format]);
 		gpu.engine.driver.selectMultiBuffers(fmt,buffers);
 		gpu.engine.renderInstanced(ibuf, inst);
+	}
+
+	public function drawText( text : String ) {
+		if( currentShader == null ) return;
+		if( text.length > 256 ) {
+			error("Too long text (max 256)");
+			return;
+		}
+		if( currentShader.instanceFormat != null ) {
+			error("Shader needs drawInstance()");
+			return;
+		}
+		flush();
+		var tf = new h2d.Text(gpu.font);
+		@:privateAccess tf.initGlyphs(text);
+		var buf = @:privateAccess tf.glyphs.content.tmp;
+		var outPos = 0;
+		var inPos = 0;
+		var outBuf = new hxd.FloatBuffer(buf.length>>1);
+		// remove rgba
+		for( i in 0...(buf.length>>3) ) {
+			outBuf[outPos++] = buf[inPos++];
+			outBuf[outPos++] = buf[inPos++];
+			outBuf[outPos++] = buf[inPos++];
+			outBuf[outPos++] = buf[inPos++];
+			inPos += 4;
+		}
+		var nvert = outBuf.length>>2;
+		textBuf.uploadFloats(outBuf,0,nvert);
+		gpu.engine.renderQuadBuffer(textBuf,0,nvert>>1);
 	}
 
 	/**
@@ -605,8 +641,12 @@ class PicoApi {
 	/**
 		Return the current time since 1/1/1970 in seconds
 	**/
-	public function time() {
+	public function date() {
 		return Std.int(Date.now().getTime() / 1000.);
+	}
+
+	public function time() {
+		return (hxd.Timer.frameCount - frameOffset) / 60;
 	}
 
 	/// SOUND ------
@@ -659,7 +699,6 @@ class PicoApi {
 		// loop until exact FPS
 		while( haxe.Timer.stamp() < time ) {
 		}
-		needFlush = true;
 		setGlobal("time", frames / FPS);
 		currentMaterial.stencil = new h3d.mat.Stencil();
 	}

@@ -131,11 +131,11 @@ class PicoWindow extends DynamicComponent {
 		code.insertTabs = "\t";
 	}
 
-	public function setError( line : Int, message : String ) {
+	public function setError( line : Int, message : String, dispLine = true ) {
 		error.text = message;
 		errorLine = line;
 		error.parent.visible = true;
-		errorLineDisp.visible = true;
+		errorLineDisp.visible = dispLine;
 		var dispLine = code.getCursorLine(errorLine - 1);
 		errorLineDisp.y = code.font.lineHeight * dispLine;
 	}
@@ -186,12 +186,14 @@ class PicoGpu extends hxd.App {
 	var editStride = 4;
 	var prevIndex : Int;
 	var writeFile : haxe.io.Bytes -> Void;
+	public var font : h2d.Font;
 	public var pad : hxd.Pad;
 
 	static var PREFS = hxd.Save.load({ lastFile : null, storages : new Map<String,haxe.io.Bytes>() });
 
 	override function init() {
 		pad = hxd.Pad.createDummy();
+		font = hxd.Res.style.medodica_regular_12.toFont();
 		hxd.Pad.wait(function(p) pad = p);
 		initSystem();
 		var data = null;
@@ -498,13 +500,11 @@ class PicoGpu extends hxd.App {
 			switch( editMode ) {
 			case Code:
 				api.data.code = code;
-				compileCode();
 			case Shaders:
 				api.data.shaders[editShader] = code;
 				var s = new PicoShader(editShader);
 				s.setCode(code);
 				api.updateShader(s);
-				compileCode(); // force reinit program
 			case Memory:
 				var m = api.data.memory[editMemory];
 				switch( m.data ) {
@@ -513,30 +513,30 @@ class PicoGpu extends hxd.App {
 					m.parseCode(code);
 					setMode(Memory); // reformat
 				}
-				compileCode(); // force reinit program
 			case Samples:
 			}
+			checkCode();
 		});
 		syncCode();
 	}
 
-	function handleErrors( f : Void -> Void ) {
+	function handleErrors( f : Void -> Void, dispError = true ) {
 		try {
 			try {
 				win.clearError();
 				f();
 			} catch( e : hscript.Expr.Error ) {
-				win.setError(e.line, e.toString());
+				win.setError(e.line, (dispError ? "" : "Code ")+e.toString(), dispError);
 			}
 		} catch( e : hxsl.Ast.Error ) {
 			var sub = api.data.shaders[editShader].substr(0,e.pos.min);
 			var line = sub.split("\n").length;
-			win.setError(line, e.msg);
+			win.setError(line, (dispError ? "" : "Code ")+e.msg, dispError);
 		}
 	}
 
 	function checkCode() {
-		handleErrors(compileCode);
+		handleErrors(compileCode, editMode == Code);
 		return !win.hasError();
 	}
 

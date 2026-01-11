@@ -1,0 +1,47 @@
+PICO-GPU.1
+#----
+// our text buffer has (XY,UV) format
+@input var position : Vec2;
+@input var uv : Vec2;
+
+@param var offset : Vec2;
+@param var color : Vec4;
+@param var scale : Float;
+
+// this global is PicoGPU font
+@global var textFont : Sampler2D;
+
+var outputPosition : Vec4;
+var outputColor : Vec4;
+
+function vertex() {
+	var pos = position * scale + offset;
+	// convert from screen pixel position
+	// to [-1,1] screen position
+	var screen = (pos / vec2(640,480)) * 2 - vec2(1);
+	outputPosition = vec4(screen.x,-screen.y,0,1);
+}
+
+function fragment() {
+	outputColor = textFont.get(uv) * color;
+}
+#----
+function update() {
+	clear(vec4(0.1,0.2,0.3,1));
+	setShader(0);
+	alpha(true);
+	depth(false);
+	var color = vec4();
+	color.setColor(0xFFAABBCC);
+	setParam("color",color);
+	setParam("scale",4);
+	for( i in 0...5 ) {
+		var t = time() + i * 0.1;
+		var px = round((sin(t * 3) + 1) * 50)+100;
+		var py = round((sin(t) + 1) * 200);
+		color.a = (i + 1) * 0.2;
+		setParam("offset",vec3(px,py));
+		drawText("Hello World !");
+	}
+}
+#----
