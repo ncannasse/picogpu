@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "@vuepress/bundler-vite": "^2.0.0-rc.26",
+    "@vuepress/theme-default": "^2.0.0-rc.121",
+    "sass-embedded": "^1.97.2",
+    "vue": "^3.5.26",
+    "vuepress": "^2.0.0-rc.26"
+  },
+  "scripts": {
+    "doc:test": "vuepress dev doc",
+    "doc:build": "vuepress build doc"
+  }
+}

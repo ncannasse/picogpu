@@ -1,0 +1,3 @@
+[submodule "www"]
+	path = www
+	url = https://github.com/ncannasse/picogpu.github.io.git

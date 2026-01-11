@@ -5,5 +5,10 @@
 /*.hl
 /*.gpu
 /save.sav
-/doc
 /*.js
+node_modules
+.bin
+/doc/.vuepress/.cache
+/doc/.vuepress/.temp
+/doc/.vuepress/dist
+package-lock.json

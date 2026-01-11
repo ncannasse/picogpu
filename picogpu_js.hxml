@@ -1,7 +1,7 @@
 -lib heaps
 -lib domkit
 -lib hscript
--js picogpu.js
+-js doc/.vuepress/public/picogpu.js
 -cp src
 -D hscriptPos
 -dce no

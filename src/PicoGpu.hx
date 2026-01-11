@@ -744,14 +744,21 @@ class PicoGpu extends hxd.App {
 				return apiXML;
 			throw "Missing file "+file;
 		};
+		var initDone = false;
+		(js.Browser.window : Dynamic).picoGpuStart = function() {
+			if( initDone ) return false;
+			initDone = true;
+			new PicoGpu();
+			return true;
+		};
 		#else
 		if( hl.Api.hasDebugger() )
 			hxd.res.Resource.LIVE_UPDATE = true;
 		else
 			hl.UI.closeConsole();
 		hxd.Res.initLocal();
-		#end
 		new PicoGpu();
+		#end
 	}
 
 }
