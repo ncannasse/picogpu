@@ -12,3 +12,5 @@ node_modules
 /doc/.vuepress/.temp
 /doc/.vuepress/dist
 package-lock.json
+/picogpu
+/*.zip
