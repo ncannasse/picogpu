@@ -28,6 +28,10 @@ export default defineUserConfig({
 			link : '/Start.html'
 		},
 		'Doc.md',
+		{
+			text : 'Download',
+			link : 'https://github.com/ncannasse/picogpu/releases'
+		},
 		'About.md'
 	]
 	})

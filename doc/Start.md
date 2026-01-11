@@ -1,6 +1,7 @@
+
 <canvas id="webgl" style="width:640px;height:480px;align:middle"></canvas>
 
-<script>
+<script setup>
 	var id;
 	function onReady() {
 		clearTimeout(id);
