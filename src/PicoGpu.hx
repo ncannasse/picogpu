@@ -186,12 +186,14 @@ class PicoGpu extends hxd.App {
 	var editStride = 4;
 	var prevIndex : Int = 0;
 	var writeFile : haxe.io.Bytes -> Void;
+	var container : h2d.Flow;
 	public var font : h2d.Font;
 	public var pad : hxd.Pad;
 
 	static var PREFS = hxd.Save.load({ lastFile : null, storages : new Map<String,haxe.io.Bytes>() });
 
 	override function init() {
+		engine.backgroundColor = 0xFF1B1B1F;
 		pad = hxd.Pad.createDummy();
 		font = hxd.Res.style.medodica_regular_12.toFont();
 		hxd.Pad.wait(function(p) pad = p);
@@ -223,6 +225,7 @@ class PicoGpu extends hxd.App {
 		if( data == null ) loadSample("Start.gpu") else loadData(data);
 		initUI();
 		start();
+		onResize();
 	}
 
 	public static function savePrefs() {
@@ -564,8 +567,11 @@ class PicoGpu extends hxd.App {
 		@:privateAccess fnt.glyphs.set("\t".code,sp);
 		style = new h2d.domkit.Style();
 		style.loadComponents("style");
-		win = new PicoWindow(this, s2d);
-		style.addObject(win);
+		container = new h2d.Flow(s2d);
+		container.dom = domkit.Properties.create("flow", container);
+		container.dom.addClass("root-container");
+		style.addObject(container);
+		win = new PicoWindow(this, container);
 		haxe.Timer.delay(win.code.focus,0);
 		#if hl
 		if( hl.Api.hasDebugger() ) {
@@ -709,6 +715,17 @@ class PicoGpu extends hxd.App {
 
 	public function getScene() {
 		return win.dom.hasClass("fullscreen") ? win.sceneFS : win.scene;
+	}
+
+	override function onResize() {
+		super.onResize();
+		var level = 1;
+		var w = PicoApi.WIDTH;
+		var h = PicoApi.HEIGHT;
+		while( engine.width >= w * (level+1) && engine.height >= h * (level + 1) ) level++;
+		container.setScale(level);
+		container.x = (engine.width - w * level) >> 1;
+		container.y = (engine.height - h * level) >> 1;
 	}
 
 	override function update(dt:Float) {
