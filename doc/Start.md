@@ -5,8 +5,7 @@
 	var id;
 	function onReady() {
 		var dpr = window.devicePixelRatio || 1;
-		document.getElementById("webgl").style.minWidth = Math.round((window.innerWidth * 0.5) / dpr) + "px";
-		document.getElementById("webgl").style.minHeight = Math.round((window.innerHeight * 0.8) / dpr) + "px";
+		document.getElementById("content").parentElement.removeAttribute("vp-content");
 		clearTimeout(id);
 		if( !window.picoGpuStart() )
 			window.location.reload();
