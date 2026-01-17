@@ -15,7 +15,7 @@ test:
 OUT=picogpu
 HL=$(HLPATH)
 WINDLL=C:/Windows/System32
-HDLLS=$(HL)/libhl.dll $(HL)/sdl.hdll $(HL)/fmt.hdll $(HL)/ssl.hdll $(HL)/ui.hdll $(HL)/uv.hdll $(HL)/heaps.hdll
+HDLLS=$(HL)/libhl.dll $(HL)/sdl.hdll $(HL)/fmt.hdll $(HL)/ssl.hdll $(HL)/ui.hdll $(HL)/uv.hdll $(HL)/heaps.hdll $(HL)/openal.hdll
 WDLLS=$(HL)/OpenAL32.dll $(HL)/SDL2.dll $(WINDLL)/msvcp140.dll $(WINDLL)/vcruntime140.dll $(WINDLL)/vcruntime140_1.dll
 
 release:
